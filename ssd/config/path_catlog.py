@@ -2,8 +2,24 @@ import os
 
 
 class DatasetCatalog:
-    DATA_DIR = 'datasets'
+    DATA_DIR = '../fcos-pytorch'
     DATASETS = {
+        'bdd_daytime_train': {
+            "data_dir": "bdd100k/images/100k/train",
+            "ann_file": "daytime_bdd100k_labels_images_det_coco_train.json"
+        },
+        'bdd_daytime_val': {
+            "data_dir": "bdd100k/images/100k/val",
+            "ann_file": "daytime_bdd100k_labels_images_det_coco_val.json"
+        },
+        'bdd_night_train': {
+            "data_dir": "bdd100k/images/100k/train",
+            "ann_file": "night_bdd100k_labels_images_det_coco_train.json"
+        },
+        'bdd_night_val': {
+            "data_dir": "bdd100k/images/100k/val",
+            "ann_file": "night_bdd100k_labels_images_det_coco_val.json"
+        },	
         'voc_2007_train': {
             "data_dir": "VOC2007",
             "split": "train"
@@ -67,7 +83,7 @@ class DatasetCatalog:
                 split=attrs["split"],
             )
             return dict(factory="VOCDataset", args=args)
-        elif "coco" in name:
+        elif "coco" in name or 'bdd' in name:
             coco_root = DatasetCatalog.DATA_DIR
             if 'COCO_ROOT' in os.environ:
                 coco_root = os.environ['COCO_ROOT']
