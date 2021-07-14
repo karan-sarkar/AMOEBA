@@ -57,6 +57,7 @@ _C.INPUT.PIXEL_MEAN = [123, 117, 104]
 _C.DATASETS = CN()
 # List of the dataset names for training, as present in paths_catalog.py
 _C.DATASETS.TRAIN = ()
+_C.DATASETS.TARGET_TRAIN = ()
 # List of the dataset names for testing, as present in paths_catalog.py
 _C.DATASETS.TEST = ()
 

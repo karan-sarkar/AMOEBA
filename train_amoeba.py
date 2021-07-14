@@ -8,9 +8,9 @@ import torch.distributed as dist
 from ssd.engine.inference import do_evaluation
 from ssd.config import cfg
 from ssd.data.build import make_data_loader
-from ssd.engine.trainer import do_train
+from ssd.engine.trainer import do_train_amoeba
 from ssd.modeling.detector import build_detection_model
-from ssd.solver.build import make_optimizer, make_lr_scheduler
+from ssd.solver.build import make_optimizer_amoeba, make_lr_scheduler
 from ssd.utils import dist_util, mkdir
 from ssd.utils.checkpoint import CheckPointer
 from ssd.utils.dist_util import synchronize
@@ -27,21 +27,24 @@ def train(cfg, args):
         model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[args.local_rank], output_device=args.local_rank)
 
     lr = cfg.SOLVER.LR * args.num_gpus  # scale by num gpus
-    optimizer = make_optimizer(cfg, model, lr)
+    c_optimizer, g_optimizer = make_optimizer_amoeba(cfg, model, lr)
 
     milestones = [step // args.num_gpus for step in cfg.SOLVER.LR_STEPS]
-    scheduler = make_lr_scheduler(cfg, optimizer, milestones)
+    c_scheduler = make_lr_scheduler(cfg, c_optimizer, milestones)
+    g_scheduler = make_lr_scheduler(cfg, g_optimizer, milestones)
 
     arguments = {"iteration": 0}
     save_to_disk = dist_util.get_rank() == 0
-    checkpointer = CheckPointer(model, optimizer=optimizer, scheduler=scheduler, save_dir=cfg.OUTPUT_DIR, save_to_disk=save_to_disk, logger=logger)
+    checkpointer = CheckPointer(model, c_optimizer=c_optimizer, g_optimizer=g_optimizer, 
+        c_scheduler=c_scheduler, save_dir=cfg.OUTPUT_DIR, save_to_disk=save_to_disk, logger=logger)
     extra_checkpoint_data = checkpointer.load()
     arguments.update(extra_checkpoint_data)
 
     max_iter = cfg.SOLVER.MAX_ITER // args.num_gpus
     train_loader = make_data_loader(cfg, is_train=True, distributed=args.distributed, max_iter=max_iter, start_iter=arguments['iteration'])
+    target_train_loader = make_data_loader(cfg, is_train=True, is_target=True, distributed=args.distributed, max_iter=max_iter, start_iter=arguments['iteration'])
 
-    model = do_train(cfg, model, train_loader, optimizer, scheduler, checkpointer, device, arguments, args)
+    model = do_train_amoeba(cfg, model, train_loader, target_train_loader, c_optimizer, g_optimizer, c_scheduler, g_scheduler, checkpointer, device, arguments, args)
     return model
 
 

@@ -18,22 +18,30 @@ class SSDBoxHead(nn.Module):
         self.loss_evaluator = MultiBoxLoss(neg_pos_ratio=cfg.MODEL.NEG_POS_RATIO)
         self.post_processor = PostProcessor(cfg)
         self.priors = None
+        self.l1loss = nn.L1Loss()
 
-    def forward(self, features, targets=None):
+    def forward(self, features, targets=None, discrep=False):
         cls_logits, bbox_pred = self.predictor(features)
         if self.training:
-            return self._forward_train(cls_logits, bbox_pred, targets)
+            return self._forward_train(cls_logits, bbox_pred, targets, discrep=discrep)
         else:
             return self._forward_test(cls_logits, bbox_pred)
 
-    def _forward_train(self, cls_logits, bbox_pred, targets):
+    def _forward_train(self, cls_logits, bbox_pred, targets, discrep=False):
         gt_boxes, gt_labels = targets['boxes'], targets['labels']
         reg_loss, cls_loss = self.loss_evaluator(cls_logits, bbox_pred, gt_labels, gt_boxes)
+        detections = (cls_logits, bbox_pred)
         loss_dict = dict(
             reg_loss=reg_loss,
             cls_loss=cls_loss,
         )
-        detections = (cls_logits, bbox_pred)
+        if discrep:
+            x = cls_logits.view(-1, cls_logits.size(-1))
+            mx = x.argmax(1)
+            mx = F.one_hot(mx, cls_logits.size(-1)).float()
+            discrep_loss = self.l1loss(x.softmax(1), mx)
+            loss_dict['discrep_loss'] = discrep_loss
+            
         return detections, loss_dict
 
     def _forward_test(self, cls_logits, bbox_pred):

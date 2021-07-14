@@ -11,9 +11,9 @@ class SSDDetector(nn.Module):
         self.backbone = build_backbone(cfg)
         self.box_head = build_box_head(cfg)
 
-    def forward(self, images, targets=None):
+    def forward(self, images, targets=None, discrep=False):
         features = self.backbone(images)
-        detections, detector_losses = self.box_head(features, targets)
+        detections, detector_losses = self.box_head(features, targets, discrep=discrep)
         if self.training:
             return detector_losses
         return detections

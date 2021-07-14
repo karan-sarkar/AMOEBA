@@ -13,13 +13,21 @@ class CheckPointer:
     def __init__(self,
                  model,
                  optimizer=None,
+                 c_optimizer=None,
+                 g_optimizer=None,
                  scheduler=None,
+                 c_scheduler=None,
+                 g_scheduler=None,
                  save_dir="",
                  save_to_disk=None,
                  logger=None):
         self.model = model
         self.optimizer = optimizer
+        self.c_optimizer = c_optimizer
+        self.g_optimizer = g_optimizer
         self.scheduler = scheduler
+        self.c_scheduler = c_scheduler
+        self.g_scheduler = g_scheduler
         self.save_dir = save_dir
         self.save_to_disk = save_to_disk
         if logger is None:
@@ -40,8 +48,16 @@ class CheckPointer:
             data['model'] = self.model.state_dict()
         if self.optimizer is not None:
             data["optimizer"] = self.optimizer.state_dict()
+        if self.c_optimizer is not None:
+            data["c_optimizer"] = self.c_optimizer.state_dict()
+        if self.g_optimizer is not None:
+            data["g_optimizer"] = self.g_optimizer.state_dict()
         if self.scheduler is not None:
             data["scheduler"] = self.scheduler.state_dict()
+        if self.c_scheduler is not None:
+            data["c_scheduler"] = self.c_scheduler.state_dict()
+        if self.g_scheduler is not None:
+            data["g_scheduler"] = self.g_scheduler.state_dict()
         data.update(kwargs)
 
         save_file = os.path.join(self.save_dir, "{}.pth".format(name))
@@ -69,9 +85,21 @@ class CheckPointer:
         if "optimizer" in checkpoint and self.optimizer:
             self.logger.info("Loading optimizer from {}".format(f))
             self.optimizer.load_state_dict(checkpoint.pop("optimizer"))
+        if "c_optimizer" in checkpoint and self.c_optimizer:
+            self.logger.info("Loading c_optimizer from {}".format(f))
+            self.c_optimizer.load_state_dict(checkpoint.pop("c_optimizer"))
+        if "g_optimizer" in checkpoint and self.g_optimizer:
+            self.logger.info("Loading g_optimizer from {}".format(f))
+            self.g_optimizer.load_state_dict(checkpoint.pop("g_optimizer"))
         if "scheduler" in checkpoint and self.scheduler:
             self.logger.info("Loading scheduler from {}".format(f))
             self.scheduler.load_state_dict(checkpoint.pop("scheduler"))
+        if "c_scheduler" in checkpoint and self.c_scheduler:
+            self.logger.info("Loading c_scheduler from {}".format(f))
+            self.c_scheduler.load_state_dict(checkpoint.pop("c_scheduler"))
+        if "g_scheduler" in checkpoint and self.g_scheduler:
+            self.logger.info("Loading g_scheduler from {}".format(f))
+            self.g_scheduler.load_state_dict(checkpoint.pop("g_scheduler"))
 
         # return any further checkpoint data
         return checkpoint
