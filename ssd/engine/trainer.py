@@ -192,7 +192,7 @@ def do_train_amoeba(cfg, model,
         # Train Base Object Detector
         loss_dict = model(images, targets=targets)
         loss = sum(loss_dict[key] for key in loss_dict.keys() if key != 'discrep_loss')
-
+        torch.nn.utils.clip_grad_norm_(model.parameters(), 10)
         c_optimizer.zero_grad()
         g_optimizer.zero_grad()
         loss.backward()
@@ -200,6 +200,7 @@ def do_train_amoeba(cfg, model,
         g_optimizer.step()
         c_scheduler.step()
         g_scheduler.step()
+        flag = 0 if float(loss) > 5 else 1
         del loss, loss_dict
         
         
@@ -209,11 +210,12 @@ def do_train_amoeba(cfg, model,
         # Maximize Classifier Discrepancy
         loss_dict = model(images, targets=targets)
         loss_dict2 = model(target_images, targets=target_targets, discrep=True)
-        loss = sum(loss_dict[key] for key in loss_dict.keys() if key != 'discrep_loss') - loss_dict2['discrep_loss']
+        loss = sum(loss_dict[key] for key in loss_dict.keys() if key != 'discrep_loss') - flag * loss_dict2['discrep_loss']
         
 
         c_optimizer.zero_grad()
         loss.backward()
+        torch.nn.utils.clip_grad_norm_(model.parameters(), 10)
         c_optimizer.step()
         c_scheduler.step()
         del loss, loss_dict, loss_dict2
@@ -224,7 +226,7 @@ def do_train_amoeba(cfg, model,
             # Minimize Generator Discrepancy
             loss_dict = model(images, targets=targets)
             loss_dict2 = model(target_images, targets=target_targets, discrep=True)
-            loss = sum(loss_dict[key] for key in loss_dict.keys() if key != 'discrep_loss') + loss_dict2['discrep_loss']
+            loss = sum(loss_dict[key] for key in loss_dict.keys() if key != 'discrep_loss') + flag * loss_dict2['discrep_loss']
             
             # reduce losses over all GPUs for logging purposes
             loss_dict_reduced = reduce_loss_dict(loss_dict2)
@@ -233,6 +235,7 @@ def do_train_amoeba(cfg, model,
 
             g_optimizer.zero_grad()
             loss.backward()
+            torch.nn.utils.clip_grad_norm_(model.parameters(), 10)
             g_optimizer.step()
             g_scheduler.step()
             del loss, loss_dict, loss_dict2, 
