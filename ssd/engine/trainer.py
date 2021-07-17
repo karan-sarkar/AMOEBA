@@ -196,6 +196,7 @@ def do_train_amoeba(cfg, model,
         c_optimizer.zero_grad()
         g_optimizer.zero_grad()
         loss.backward()
+        torch.nn.utils.clip_grad_norm_(model.parameters(), 10)
         c_optimizer.step()
         g_optimizer.step()
         c_scheduler.step()
