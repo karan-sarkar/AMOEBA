@@ -37,11 +37,9 @@ class SSDBoxHead(nn.Module):
         )
         if discrep:
             x = cls_logits.view(-1, cls_logits.size(-1))
-            #mx = x.argmax(1)
-            #mx = F.one_hot(mx, cls_logits.size(-1)).float()
             x = x.softmax(1)
-            discrep_loss= (-x * x.log())
-            discrep_loss[discrep_loss != discrep_loss] = 0
+            discrep_loss= (-x * (x).log())
+            discrep_loss[discrep_loss.isnan()] = 0
             loss_dict['discrep_loss'] = discrep_loss.sum(-1).mean()
             
         return detections, loss_dict
