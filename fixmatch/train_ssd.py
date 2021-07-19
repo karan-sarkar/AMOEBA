@@ -44,12 +44,13 @@ from fixmatch.models.ssd.ssd import SSD300
 from fixmatch.dataset.bdd import collate_fn as bdd_collate_fn
 from fixmatch.dataset.bdd import collate_fn2 as bdd_unlabeled_collate_fn
 
-from fixmatch.distributed import get_rank, all_gather
+from fixmatch.distributed import get_rank, all_gather, reduce_loss_dict
 from fixmatch.evaluate_coco import evaluate_fixmatch, evaluate
 
 from pprint import PrettyPrinter
 #from benchmark.ssd_sgr.eval import evaluate_fixmatch as evaluate_voc
 from fixmatch.utils.ssd_sgr_utils import label_map
+
 
 
 logger = logging.getLogger(__name__)
@@ -70,12 +71,17 @@ def main():
         device = torch.device('cuda', args.gpu_id)
         args.world_size = 1
         args.n_gpu = torch.cuda.device_count()
+
+        ### we will use all the gpus on the server to train the model....
     else:
+        print("--------WE ARE GOING DISTRIBUTEDDDD!!!!!!!!--------------")
+        print(f'%%%%%%%%%%%total number of gpus we see is: {torch.cuda.device_count()}')
+
         torch.cuda.set_device(args.local_rank)
         device = torch.device('cuda', args.local_rank)
         torch.distributed.init_process_group(backend='nccl')
         args.world_size = torch.distributed.get_world_size()
-        args.n_gpu = 1
+        args.n_gpu = torch.cuda.device_count()
 
     args.device = device
 
@@ -163,32 +169,14 @@ def main():
         momentum = 0.5  # momentum
         weight_decay = 5e-4  # weight decay
 
-    print(f"Loaded dataset: {args.dataset}")
-    print(f"Number of classes: {args.num_classes}")
-    print(f"Batch size: {args.batch_size}")
-    print(f"Image size: {args.image_width, args.image_height}")
-    ###debugging
-    labeled_im, _, _ = labeled_dataset[0]
-    print(f"Labeled image size: {labeled_im.size()}")
-    #(unlabeled_im, _), _, _ = unlabeled_dataset[0]
-    #print(f"Unlabeled image size: {unlabeled_im.size()}")
-
-    ### for fcos, we must get the arguments from the argument.py
-    ### 1. create the model
-
-    fcos_args = get_args(args)
-    fcos_args.size_divisible = 0
-    model = SSD300(args)
-
-    print(f"loading model: SSD300...")
-    print("Total params: {:.2f}M".format(
-        sum(p.numel() for p in model.parameters()) / 1e6))
-
-    model.to(args.device)
 
 
     if args.local_rank == 0:
         torch.distributed.barrier()
+
+
+    fcos_args = get_args(args)
+    fcos_args.size_divisible = 0
 
     train_sampler = RandomSampler if args.local_rank == -1 else DistributedSampler
 
@@ -198,6 +186,7 @@ def main():
         batch_size=args.batch_size,
         num_workers=args.num_workers,
         drop_last=True,
+        pin_memory = True,
         collate_fn=bdd_collate_fn(fcos_args))
 
     unlabeled_trainloader = DataLoader(
@@ -206,6 +195,7 @@ def main():
         batch_size=args.batch_size * args.mu,
         num_workers=args.num_workers,
         drop_last=True,
+        pin_memory=True,
         collate_fn=bdd_unlabeled_collate_fn(fcos_args))
 
     test_day_loader = DataLoader(
@@ -213,6 +203,7 @@ def main():
         sampler=SequentialSampler(test_day_dataset),
         batch_size=args.batch_size,
         num_workers=args.num_workers,
+        pin_memory=True,
         collate_fn=bdd_collate_fn(fcos_args))
 
     if not (args.dataset == 'pascal_voc' or args.dataset == 'pascal_bdd'):
@@ -221,12 +212,26 @@ def main():
             sampler=SequentialSampler(test_night_dataset),
             batch_size=args.batch_size,
             num_workers=args.num_workers,
+            pin_memory=True,
             collate_fn=bdd_collate_fn(fcos_args))
     else:
         test_night_loader = None
 
     if args.local_rank not in [-1, 0]:
         torch.distributed.barrier()
+
+    model = SSD300(args)
+
+    print(f"loading model: SSD300...")
+    print("Total params: {:.2f}M".format(
+        sum(p.numel() for p in model.parameters()) / 1e6))
+
+    #if args.local_rank == 0:
+    #    torch.distributed.barrier()
+
+
+    model.to(args.device)
+
 
     if args.local_rank == 0:
         torch.distributed.barrier()
@@ -244,7 +249,7 @@ def main():
     #lr = args.lr
     #momentum = 0.9
 
-    args.train_len = len(labeled_trainloader)
+    args.train_len = len(labeled_trainloader) + len(unlabeled_trainloader)
 
     for param_name, param in model.named_parameters():
         if param.requires_grad:
@@ -383,14 +388,13 @@ def train_ssd(args, labeled_trainloader, unlabeled_trainloader, test_loaders, te
 
             if loss2 is None:  ### this occurs when there is no box proposal... maybe we need to see how many times this happens...
 
-                Lu = torch.Tensor([0])
-                loss = Lx
+                Lu = torch.tensor(0).to(args.device)
+                #loss = Lx + args.lambda_u * Lu
 
             else:
                 loss2 = torch.nan_to_num(loss2)
-
                 Lu = loss2
-                loss = Lx + args.lambda_u * Lu
+            loss = Lx + args.lambda_u * Lu
 
             forward_time.update(time.time() - end)
 
@@ -401,9 +405,24 @@ def train_ssd(args, labeled_trainloader, unlabeled_trainloader, test_loaders, te
             else:
                 loss.backward()
 
-            losses.update(loss.item())
-            losses_x.update(Lx.item())
-            losses_u.update(Lu.item())
+
+            loss_dict = {'total_loss': loss,
+                         'Lx': Lx,
+                         'Lu': Lu}
+
+            reduced_losses = reduce_loss_dict(loss_dict)
+            
+
+            losses.update(reduced_losses['total_loss'].item())
+            losses_x.update(reduced_losses['Lx'].item())
+            losses_u.update(reduced_losses['Lu'].item())
+            """
+
+            if args.local_rank in [-1, 0]:
+                losses.update(loss.item())
+                losses_x.update(Lx.item())
+                losses_u.update(Lu.item())
+            """
             nn.utils.clip_grad_norm_(model.parameters(), 2)
             optimizer.step()
             scheduler.step()

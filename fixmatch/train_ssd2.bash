@@ -13,4 +13,8 @@
 
 #CUDA_VISIBLE_DEVICES=1 python train_ssd.py --dataset bdd_fcos --batch_size 4 --mu 1 --eval-step 4096 --num-labeled 1000 --image-width 300 --image-height 300 --out /nethome/jbang36/j_amoeba/benchmark/fixmatch/models/save/ssd/bdd/no_lossu ## 'wideresnet', 'resnext', 'fcos', default batch-size 64
 
-###CUDA_VISIBLE_DEVICES=1 python train_ssd.py --dataset pascal_bdd --batch_size 4 --mu 1 --eval-step 4096 --num-labeled 1000 --image-width 300 --image-height 300 --out /nethome/jbang36/k_amoeba/benchmark/fixmatch/models/save/ssd/bdd/no_lossu ## 'wideresnet', 'resnext', 'fcos', default batch-size 64
+
+
+DATASET=pascal_bdd_day_night
+LABELED=1000
+CUDA_VISIBLE_DEVICES=0,1,2,3 python train_ssd.py --dataset $DATASET --batch_size 4 --mu 1 --eval-step 4096 --num-labeled $LABELED --image-width 300 --image-height 300 --out /nethome/jbang36/k_amoeba/results/$DATASET/$LABELED ## 'wideresnet', 'resnext', 'fcos', default batch-size 64

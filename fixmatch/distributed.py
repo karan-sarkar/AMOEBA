@@ -90,6 +90,7 @@ def reduce_loss_dict(loss_dict):
             keys.append(k)
             losses.append(loss_dict[k])
 
+        #print(f"inside reduce_loss_dict, {losses}")
         losses = torch.stack(losses, 0)
         dist.reduce(losses, dst=0)
 
