@@ -148,6 +148,17 @@ def main():
         weight_decay = 5e-4  # weight decay
 
 
+    elif args.dataset == 'pascal_bdd_day_night_cyclegan':
+        from fixmatch.utils.bdd_utils import label_map
+        labeled_dataset, unlabeled_dataset, (test_day_dataset, test_night_dataset) = DATASET_GETTERS[args.dataset](
+            args, data_dir)
+        n_classes = len(label_map)
+        args.num_classes = n_classes
+        lr = 1e-3
+        momentum = 0.9
+        weight_decay = 5e-4
+
+
     elif args.dataset == 'pascal_bdd':
         from fixmatch.utils.bdd_utils import label_map
 
@@ -475,7 +486,7 @@ def train_ssd(args, labeled_trainloader, unlabeled_trainloader, test_loaders, te
             args.writer.add_scalar('train/3.train_loss_u', losses_u.avg, epoch)
 
 
-            if args.dataset == 'pascal_bdd_day_night':
+            if args.dataset == 'pascal_bdd_day_night' or args.dataset == 'pascal_bdd_day_night_cyclegan':
                 args.writer.add_scalar('test/1.day_mAP', day_results, epoch)
                 args.writer.add_scalar('test/2.night_mAP', night_results, epoch)
 
@@ -626,7 +637,7 @@ def valid_p2(dataset, preds):
 
 @torch.no_grad()
 def valid(args, loader, dataset, m, device):
-    if args.dataset in  ['pascal_voc', 'pascal_bdd', 'pascal_bdd_day_night']:
+    if args.dataset in  ['pascal_voc', 'pascal_bdd', 'pascal_bdd_day_night', 'pascal_bdd_day_night_cyclegan']:
         pp = PrettyPrinter()
         from fixmatch.evaluate_pascal import evaluate_fixmatch as evaluate_voc
         APs, mAP = evaluate_voc(args, loader, m)
@@ -691,7 +702,7 @@ def get_fixmatch_arguments():
     parser.add_argument('--num-workers', type=int, default=1,
                         help='number of workers')
     parser.add_argument('--dataset', default='bdd_fcos', type=str,
-                        choices=['cifar10', 'cifar100', 'bdd', 'bdd_fcos', 'pascal_voc', 'pascal_bdd', 'pascal_bdd_day_night'],
+                        choices=['cifar10', 'cifar100', 'bdd', 'bdd_fcos', 'pascal_voc', 'pascal_bdd', 'pascal_bdd_day_night', 'pascal_bdd_day_night_cyclegan'],
                         help='dataset name')
     parser.add_argument('--num-labeled', type=int, default=100,
                         help='number of labeled data')

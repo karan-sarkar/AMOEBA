@@ -2,7 +2,7 @@ import os
 
 
 class DatasetCatalog:
-    DATA_DIR = '../fcos-pytorch'
+    DATA_DIR = '/nethome/ksarkar9/fcos-pytorch'
     DATASETS = {
         'bdd_daytime_train': {
             "data_dir": "bdd100k/images/100k/train",
