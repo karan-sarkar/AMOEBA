@@ -21,4 +21,4 @@ SOLVER:
   LR: 1e-3
 TEST:
   BATCH_SIZE: 2
-OUTPUT_DIR: 'outputs/vgg_ssd300_coco_bdd_daytime_night_amoeba'
+OUTPUT_DIR: 'outputs/vgg_ssd300_coco_bdd_daytime_night1000_amoeba'
