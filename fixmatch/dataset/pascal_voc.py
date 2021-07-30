@@ -87,6 +87,63 @@ def get_pascal_bdd_day_night(args, data_dir):
 
 """
 
+
+def get_pascal_bdd_day_night_cyclegan(args, data_dir):
+    #### we only load the 'converted night images'
+    night_image_folder = '/data/bdd/cyclegan/'
+
+    keep_difficult = True
+    train_cut = args.num_labeled
+
+    labeled_dataset = PascalVOCFixmatch(night_image_folder,
+                                        split = 'train',
+                                        keep_difficult = keep_difficult,
+                                        transform = transform_train)
+
+    dataset_len = len(labeled_dataset)
+
+    mean = [0.485, 0.456, 0.406]
+    std = [0.229, 0.224, 0.225]
+    image_size = (args.image_height, args.image_width)
+    tfm = TransformFixMatch(mean=mean, std=std, image_size=image_size)
+
+    unlabeled_dataset = PascalVOCFixmatch(night_image_folder,
+                                          split='train',
+                                          keep_difficult=keep_difficult,
+                                          transform=tfm)
+
+    test_dataset = PascalVOCFixmatch(night_image_folder,
+                                     split='val',
+                                     keep_difficult=keep_difficult,
+                                     transform=transform_val)
+
+    day_image_folder = '/data/bdd/ssd_sgr/day'
+    day_test_dataset = PascalVOCFixmatch(day_image_folder,
+                                           split = 'val',
+                                           keep_difficult = keep_difficult,
+                                           transform = transform_val)
+
+
+    labeled_indices = np.arange(train_cut).astype(np.int32)
+    unlabeled_indices = np.arange(train_cut, dataset_len)
+
+    labeled_set = torch.utils.data.Subset(labeled_dataset, labeled_indices)
+
+    unlabeled_set = torch.utils.data.Subset(unlabeled_dataset, unlabeled_indices)
+
+    #### let's shorten the test_dataset, we will use 1000 examples
+    test_len = 1000
+    test_indices = np.arange(test_len).astype(np.int32)
+    night_test_dataset = torch.utils.data.Subset(test_dataset, test_indices)
+
+    day_test_dataset = torch.utils.data.Subset(day_test_dataset, test_indices)
+
+
+    return labeled_set, unlabeled_set, (day_test_dataset, night_test_dataset)
+
+
+
+
 def get_pascal_bdd_day_night(args, data_dir):
     day_data_folder = '/srv/data/jbang36/bdd/ssd_sgr/day'
     night_data_folder = '/srv/data/jbang36/bdd/ssd_sgr/night'
