@@ -20,6 +20,18 @@ class DatasetCatalog:
             "data_dir": "bdd100k/images/100k/val",
             "ann_file": "night_bdd100k_labels_images_det_coco_val.json"
         },
+        'bdd_night1000_train': {
+            "data_dir": "bdd100k/images/100k/train",
+            "ann_file": "night1000_bdd100k_labels_images_det_coco_train.json"
+        },
+        'bdd_night5000_train': {
+            "data_dir": "bdd100k/images/100k/train",
+            "ann_file": "night5000_bdd100k_labels_images_det_coco_train.json"
+        },
+        'bdd_night10000_train': {
+            "data_dir": "bdd100k/images/100k/train",
+            "ann_file": "night10000_bdd100k_labels_images_det_coco_train.json"
+        },
         'bdd_clear_train': {
             "data_dir": "bdd100k/images/100k/train",
             "ann_file": "clear_bdd100k_labels_images_det_coco_train.json"
