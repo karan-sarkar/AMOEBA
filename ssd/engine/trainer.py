@@ -188,7 +188,7 @@ def do_train_amoeba(cfg, model,
         target_images = target_images.to(device)
         target_targets = target_targets.to(device)
         
-        
+        '''
         # Train Base Object Detector
         loss_dict = model(images, targets=targets)
         loss = sum(loss_dict[key] for key in loss_dict.keys() if key != 'discrep_loss')
@@ -201,17 +201,16 @@ def do_train_amoeba(cfg, model,
         g_optimizer.step()
         c_scheduler.step()
         g_scheduler.step()
-        flag = 0 if float(loss) > 5 else 1
+        flag = 1
         del loss, loss_dict
+        '''
+
         
-        
-        
-        
-        
-        # Maximize Classifier Discrepancy
         loss_dict = model(images, targets=targets)
+        loss = sum(loss_dict[key] for key in loss_dict.keys())
+        del images, targets, loss_dict
         loss_dict2 = model(target_images, targets=target_targets, discrep=True)
-        loss = sum(loss_dict[key] for key in loss_dict.keys() if key != 'discrep_loss') - flag * loss_dict2['discrep_loss']
+        loss = loss - loss_dict2['discrep_loss']
         
 
         c_optimizer.zero_grad()
@@ -219,15 +218,23 @@ def do_train_amoeba(cfg, model,
         torch.nn.utils.clip_grad_norm_(model.parameters(), 10)
         c_optimizer.step()
         c_scheduler.step()
-        del loss, loss_dict, loss_dict2
+        
+
+        loss_dict_reduced = reduce_loss_dict(loss_dict2)
+        losses_reduced = sum(loss for loss in loss_dict_reduced.values())
+        meters.update(total_loss=losses_reduced, **loss_dict_reduced)
+
+
+
+        del loss, loss_dict2, target_images, target_targets
         
         
-        
-        for _ in range(4):
+        '''
+        for _ in range(3):
             # Minimize Generator Discrepancy
             loss_dict = model(images, targets=targets)
             loss_dict2 = model(target_images, targets=target_targets, discrep=True)
-            loss = sum(loss_dict[key] for key in loss_dict.keys() if key != 'discrep_loss') + flag * loss_dict2['discrep_loss']
+            loss = sum(loss_dict[key] for key in loss_dict.keys()) + loss_dict2['discrep_loss']
             
             # reduce losses over all GPUs for logging purposes
             loss_dict_reduced = reduce_loss_dict(loss_dict2)
@@ -239,8 +246,9 @@ def do_train_amoeba(cfg, model,
             torch.nn.utils.clip_grad_norm_(model.parameters(), 10)
             g_optimizer.step()
             g_scheduler.step()
-            del loss, loss_dict, loss_dict2, 
-        
+            del loss, loss_dict2, 
+        '''
+
         batch_time = time.time() - end
         end = time.time()
         meters.update(time=batch_time)
