@@ -47,14 +47,17 @@ class SSDBoxHead(nn.Module):
         else:
             return self._forward_test(cls_logits, bbox_pred)
 
-    def _forward_train(self, cls_logits, bbox_pred, cls_logits2, bbox_pred2, targets, discrep=False):
+    def _forward_train(self, cls_logits, bbox_pred, cls_logits2, bbox_pred2, targets, discrep=False, double=False):
         gt_boxes, gt_labels = targets['boxes'], targets['labels']
         reg_loss, cls_loss = self.loss_evaluator(cls_logits, bbox_pred, gt_labels, gt_boxes)
         reg_loss2, cls_loss2 = self.loss_evaluator(cls_logits2, bbox_pred2, gt_labels, gt_boxes)
+        if double:
+            reg_loss += reg_loss2
+            cls_loss += cls_loss2
         detections = (cls_logits, bbox_pred)
         loss_dict = dict(
-            reg_loss=reg_loss+reg_loss2,
-            cls_loss=cls_loss+cls_loss2,
+            reg_loss=reg_loss,
+            cls_loss=cls_loss,
         )
         if discrep:
             x = cls_logits.view(-1, cls_logits.size(-1)).softmax(-1)

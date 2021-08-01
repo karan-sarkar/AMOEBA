@@ -11,12 +11,12 @@ INPUT:
   IMAGE_SIZE: 300
 DATASETS:
   TRAIN: ("bdd_daytime_train",)
-  TEST: ("bdd_daytime_val",)
+  TEST: ("bdd_daytime_val","bdd_night_val")
 SOLVER:
   MAX_ITER: 400000
   LR_STEPS: [280000, 360000]
   GAMMA: 0.1
-  BATCH_SIZE: 2
+  BATCH_SIZE: 8
   LR: 1e-3
 TEST:
   BATCH_SIZE: 2

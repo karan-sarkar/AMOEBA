@@ -206,10 +206,10 @@ def do_train_amoeba(cfg, model,
         '''
 
         
-        loss_dict = model(images, targets=targets)
+        loss_dict = model(images, targets=targets, double = True)
         loss = sum(loss_dict[key] for key in loss_dict.keys())
         del images, targets, loss_dict
-        loss_dict2 = model(target_images, targets=target_targets, discrep=True)
+        loss_dict2 = model(target_images, targets=target_targets, discrep=True, double = True)
         loss = loss - loss_dict2['discrep_loss']
         
 
