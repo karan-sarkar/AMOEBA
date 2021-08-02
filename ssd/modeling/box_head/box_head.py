@@ -37,13 +37,13 @@ class SSDBoxHead(nn.Module):
         self.l1loss = nn.L1Loss()
         self.celoss = nn.CrossEntropyLoss()
 
-    def forward(self, features, targets=None, discrep=False):
+    def forward(self, features, targets=None, discrep=False,double=False):
         if discrep:
             features = tuple([grad_reverse(f) for f in features])
         cls_logits, bbox_pred = self.predictor(features)
         cls_logits2, bbox_pred2 = self.predictor2(features)
         if self.training:
-            return self._forward_train(cls_logits, bbox_pred, cls_logits2, bbox_pred2, targets, discrep=discrep)
+            return self._forward_train(cls_logits, bbox_pred, cls_logits2, bbox_pred2, targets, discrep=discrep, double=double)
         else:
             return self._forward_test(cls_logits, bbox_pred)
 
