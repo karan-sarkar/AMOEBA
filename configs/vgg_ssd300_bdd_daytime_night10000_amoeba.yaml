@@ -11,7 +11,8 @@ INPUT:
   IMAGE_SIZE: 300
 DATASETS:
   TRAIN: ("bdd_daytime_train",)
-  TEST: ("bdd_daytime_val","bdd_night_val")
+  TARGET_TRAIN: ("bdd_night10000_train",)
+  TEST: ("bdd_daytime_val", "bdd_night_val")
 SOLVER:
   MAX_ITER: 400000
   LR_STEPS: [280000, 360000]
@@ -20,4 +21,4 @@ SOLVER:
   LR: 1e-3
 TEST:
   BATCH_SIZE: 2
-OUTPUT_DIR: 'outputs/vgg_ssd300_coco_bdd_daytime'
+OUTPUT_DIR: 'outputs/vgg_ssd300_coco_bdd_daytime_night10000_amoeba'

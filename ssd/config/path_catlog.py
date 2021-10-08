@@ -19,7 +19,43 @@ class DatasetCatalog:
         'bdd_night_val': {
             "data_dir": "bdd100k/images/100k/val",
             "ann_file": "night_bdd100k_labels_images_det_coco_val.json"
-        },	
+        },
+        'bdd_night1000_train': {
+            "data_dir": "bdd100k/images/100k/train",
+            "ann_file": "night1000_bdd100k_labels_images_det_coco_train.json"
+        },
+        'bdd_night5000_train': {
+            "data_dir": "bdd100k/images/100k/train",
+            "ann_file": "night5000_bdd100k_labels_images_det_coco_train.json"
+        },
+        'bdd_night10000_train': {
+            "data_dir": "bdd100k/images/100k/train",
+            "ann_file": "night10000_bdd100k_labels_images_det_coco_train.json"
+        },
+        'bdd_clear_train': {
+            "data_dir": "bdd100k/images/100k/train",
+            "ann_file": "clear_bdd100k_labels_images_det_coco_train.json"
+        },
+        'bdd_clear_val': {
+            "data_dir": "bdd100k/images/100k/val",
+            "ann_file": "clear_bdd100k_labels_images_det_coco_val.json"
+        },
+	    'bdd_overcast_train': {
+            "data_dir": "bdd100k/images/100k/train",
+            "ann_file": "overcast_bdd100k_labels_images_det_coco_train.json"
+        },
+        'bdd_overcast_val': {
+            "data_dir": "bdd100k/images/100k/val",
+            "ann_file": "overcast_bdd100k_labels_images_det_coco_val.json"
+        },
+	    'bdd_rainy_train': {
+            "data_dir": "bdd100k/images/100k/train",
+            "ann_file": "rainy_bdd100k_labels_images_det_coco_train.json"
+        },
+        'bdd_rainy_val': {
+            "data_dir": "bdd100k/images/100k/val",
+            "ann_file": "rainy_bdd100k_labels_images_det_coco_val.json"
+        },				
         'voc_2007_train': {
             "data_dir": "VOC2007",
             "split": "train"

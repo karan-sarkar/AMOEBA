@@ -9,8 +9,8 @@ def make_optimizer(cfg, model, lr=None):
 
 def make_optimizer_amoeba(cfg, model, lr=None):
     lr = cfg.SOLVER.BASE_LR if lr is None else lr
-    top = [p for n, p in model.named_parameters() if 'box_head' in n]
-    bottom = [p for n, p in model.named_parameters() if 'box_head' not in n]
+    top = [p for n, p in model.named_parameters() if 'backbone' not in n]
+    bottom = [p for n, p in model.named_parameters() if 'backbone' in n]
     print(len(top), len(bottom))
     c_optimizer = torch.optim.SGD(top, lr=lr, momentum=cfg.SOLVER.MOMENTUM, weight_decay=cfg.SOLVER.WEIGHT_DECAY)
     g_optimizer = torch.optim.SGD(bottom, lr=lr, momentum=cfg.SOLVER.MOMENTUM, weight_decay=cfg.SOLVER.WEIGHT_DECAY)

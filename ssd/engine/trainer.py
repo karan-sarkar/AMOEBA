@@ -152,6 +152,17 @@ def do_train(cfg, model,
     logger.info("Total training time: {} ({:.4f} s / it)".format(total_time_str, total_training_time / max_iter))
     return model
 
+celoss = nn.CrossEntropyLoss()
+bceloss = nn.BCEWithLogitsLoss()
+l1loss = nn.L1Loss()
+
+
+def high(x):
+    return bceloss(x, torch.ones_like(x))
+
+def low(x):
+    return bceloss(x, torch.zeros_like(x))
+
 def do_train_amoeba(cfg, model,
              data_loader,
              target_data_loader,
@@ -192,7 +203,6 @@ def do_train_amoeba(cfg, model,
         # Train Base Object Detector
         loss_dict = model(images, targets=targets)
         loss = sum(loss_dict[key] for key in loss_dict.keys() if key != 'discrep_loss')
-        torch.nn.utils.clip_grad_norm_(model.parameters(), 10)
         c_optimizer.zero_grad()
         g_optimizer.zero_grad()
         loss.backward()
@@ -201,17 +211,15 @@ def do_train_amoeba(cfg, model,
         g_optimizer.step()
         c_scheduler.step()
         g_scheduler.step()
-        flag = 0 if float(loss) > 5 else 1
         del loss, loss_dict
         
+
         
-        
-        
-        
-        # Maximize Classifier Discrepancy
         loss_dict = model(images, targets=targets)
+        loss = sum(loss_dict[key] for key in loss_dict.keys() if key != 'discrep_loss')
+        del images, targets, loss_dict
         loss_dict2 = model(target_images, targets=target_targets, discrep=True)
-        loss = sum(loss_dict[key] for key in loss_dict.keys() if key != 'discrep_loss') - flag * loss_dict2['discrep_loss']
+        loss = loss + high(loss_dict['discrep_loss']) + low(loss_dict2['discrep_loss'])
         
 
         c_optimizer.zero_grad()
@@ -219,15 +227,17 @@ def do_train_amoeba(cfg, model,
         torch.nn.utils.clip_grad_norm_(model.parameters(), 10)
         c_optimizer.step()
         c_scheduler.step()
-        del loss, loss_dict, loss_dict2
+
+
+
+        del loss, loss_dict2, target_images, target_targets
         
         
-        
-        for _ in range(4):
+        for _ in range(1):
             # Minimize Generator Discrepancy
             loss_dict = model(images, targets=targets)
             loss_dict2 = model(target_images, targets=target_targets, discrep=True)
-            loss = sum(loss_dict[key] for key in loss_dict.keys() if key != 'discrep_loss') + flag * loss_dict2['discrep_loss']
+            loss = sum(loss_dict[key] for key in loss_dict.keys()) + high(loss_dict2['discrep_loss'])
             
             # reduce losses over all GPUs for logging purposes
             loss_dict_reduced = reduce_loss_dict(loss_dict2)
@@ -239,8 +249,8 @@ def do_train_amoeba(cfg, model,
             torch.nn.utils.clip_grad_norm_(model.parameters(), 10)
             g_optimizer.step()
             g_scheduler.step()
-            del loss, loss_dict, loss_dict2, 
-        
+            del loss, loss_dict2, 
+
         batch_time = time.time() - end
         end = time.time()
         meters.update(time=batch_time)

@@ -24,7 +24,7 @@ def train(cfg, args):
     device = torch.device(cfg.MODEL.DEVICE)
     model.to(device)
     if args.distributed:
-        model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[args.local_rank], output_device=args.local_rank)
+        model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[args.local_rank], output_device=args.local_rank, find_unused_parameters=False)
 
     lr = cfg.SOLVER.LR * args.num_gpus  # scale by num gpus
     c_optimizer, g_optimizer = make_optimizer_amoeba(cfg, model, lr)
