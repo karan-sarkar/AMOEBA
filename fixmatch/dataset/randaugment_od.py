@@ -170,6 +170,8 @@ def fixmatch_augment_pool():
 
 def my_augment_pool():
     # Test -- we took out all the transforms that moves boxes
+    ### we also need to take out augmentations that is related to color transformations...
+    """
     augs = [(AutoContrast, None, None),
             (Brightness, 1.8, 0.1),
             (Color, 1.8, 0.1),
@@ -180,6 +182,16 @@ def my_augment_pool():
             (Sharpness, 1.8, 0.1),
             (Solarize, 256, 0),
             (SolarizeAdd, 110, 0)]
+    """
+    """
+    augs = [(AutoContrast, None, None),
+            (Color, 1.8, 0.1),
+            (Equalize, None, None),
+            (Sharpness, 1.8, 0.1)]
+    """
+    augs = [(Sharpness, 1.8, 0.1)]
+
+
     return augs
 
 

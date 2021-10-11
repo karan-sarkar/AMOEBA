@@ -4,14 +4,16 @@ import mlep.data_model.BatchedLocal as BatchedLocal
 import mlep.data_model.StreamLocal as StreamLocal
 import mlep.data_set.PseudoJsonTweets as PseudoJsonTweets
 
-import mlep.utils.io_utils as io_utils
-import mlep.utils.time_utils as time_utils
+import odin.mlep_odin_main.mlep.utils.io_utils as io_utils
+import odin.mlep_odin_main.mlep.utils.time_utils as time_utils
 
-import mlep.data_encoder.w2vGoogleNews as w2vGoogleNews
-import mlep.trackers.MemoryTracker as MemoryTracker
+import odin.mlep_odin_main.mlep.data_encoder.w2vGoogleNews as w2vGoogleNews
+import odin.mlep_odin_main.mlep.trackers.MemoryTracker as MemoryTracker
 
-import mlep.drift_detector.UnlabeledDriftDetector.KullbackLeibler as KullbackLeibler
-import mlep.text.DataCharacteristics.OnlineSimilarityDistribution as OnlineSimilarityDistribution
+import odin.mlep_odin_main.mlep.drift_detector.UnlabeledDriftDetector.KullbackLeibler as KullbackLeibler
+import odin.mlep_odin_main.mlep.mlep.text.DataCharacteristics.OnlineSimilarityDistribution as OnlineSimilarityDistribution
+
+from odin.mlep_odin_main.mlep.mlep.text.DataCharacteristics import L2NormDataCharacteristics
 
 import warnings
 # warnings.filterwarnings(action="ignore", category=FutureWarning)

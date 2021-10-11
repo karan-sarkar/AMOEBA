@@ -32,12 +32,19 @@ label_map = {'traffic light': 1,
 rev_label_map = {v: k for k, v in label_map.items()}  # Inverse mapping
 
 
-bdd_attributes = {'daytime'  : 'timeofday', 'dawn/dusk': 'timeofday',
-                        'night'    : 'timeofday', 'undefined': 'timeofday',
-                        'clear'    : 'weather', 'rainy': 'weather',
-                        'undefined': 'weather', 'snowy': 'weather',
-                        'overcast' : 'weather', 'partly cloudy': 'weather',
-                        'foggy'    : 'weather'}
+bdd_attributes = {'daytime'  : 'timeofday',
+                  'dawn/dusk': 'timeofday',
+                  'night'    : 'timeofday',
+                  'undefined': 'timeofday',
+                  'clear'    : 'weather',
+                  'rainy': 'weather',
+                  'undefined': 'weather',
+                  'snowy': 'weather',
+                  'overcast' : 'weather',
+                  'partly cloudy': 'weather',
+                  'foggy'    : 'weather',
+                  'city street': 'scene',
+                  'residential': 'scene'}
 
 
 def calculate_mAP_bdd(det_boxes, det_labels, det_scores, true_boxes, true_labels, true_difficulties):
@@ -175,6 +182,12 @@ def calculate_mAP_bdd(det_boxes, det_labels, det_scores, true_boxes, true_labels
     return average_precisions, mean_average_precision
 
 
+##########################################
+######################### DATA GENERATION
+##########################################
+##########################################
+##########################################
+##########################################
 
 def create_data_lists(output_folder):
 
@@ -187,6 +200,14 @@ def create_data_lists(output_folder):
 
     generate_label_map(output_folder)
 
+def create_data_lists_res_city(output_folder):
+
+    splits = ['train', 'val']
+    for split in splits:
+        generate_images_and_objects_category(output_folder, split, group='city street')
+        generate_images_and_objects_category(output_folder, split, group='residential')
+
+
 def create_data_lists_day_night(output_folder):
 
     splits = ['train', 'val']
@@ -196,12 +217,22 @@ def create_data_lists_day_night(output_folder):
 
 
 
+
+
 def determine_difficulty(obj):
     is_occluded = obj['attributes']['occluded']
     is_truncated = obj['attributes']['truncated']
 
     return int(is_occluded or is_truncated)
 
+
+def determine_box_condition(box):
+    """
+    We will now include all the annotations
+    """
+    return True
+
+"""
 def determine_box_condition(box):
     x1, y1, x2, y2 = box
     if x1 >= x2 - 5:
@@ -218,7 +249,7 @@ def determine_box_condition(box):
         return False
 
     return True
-
+"""
 
 ##########3
 
@@ -410,4 +441,5 @@ def _load_json(path_list_idx):
 if __name__ == "__main__":
     output_folder = '/srv/data/jbang36/bdd/ssd_sgr'
     #create_data_lists(output_folder)
-    create_data_lists_day_night(output_folder)
+    #create_data_lists_day_night(output_folder)
+    create_data_lists_res_city(output_folder)

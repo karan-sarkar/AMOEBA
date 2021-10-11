@@ -1,6 +1,6 @@
 import numpy as np
-import mlep.tools.distributions.DistanceDistribution as DistanceDistribution
-import mlep.utils.array_utils as array_utils
+import odin.mlep_odin_main.mlep.mlep.tools.distributions.DistanceDistribution as DistanceDistribution
+import odin.mlep_odin_main.mlep.mlep.utils.array_utils as array_utils
 
 class L2NormDataCharacteristics:
     def __init__(self, nBins=40, alpha = 0.6):
