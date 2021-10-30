@@ -143,14 +143,17 @@ if __name__ == "__main__":
     #### we load the day images
     import json
     from PIL import Image
-    day_filename = '/srv/data/jbang36/bdd/ssd_sgr/day/TRAIN_images.json'
+    SOURCE = 'res'
+    TARGET = 'city'
+
+    day_filename = f'/srv/data/jbang36/bdd/ssd_sgr/{SOURCE}/TRAIN_images.json'
     save_path = '/srv/data/jbang36/cyclegan/data'
     count = 1000
 
     day_images = get_images(day_filename, count)
     print(f"loaded {len(day_images)} day images")
 
-    night_filename = '/srv/data/jbang36/bdd/ssd_sgr/night/TRAIN_images.json'
+    night_filename = f'/srv/data/jbang36/bdd/ssd_sgr/{TARGET}/TRAIN_images.json'
 
     night_images = get_images(night_filename, count)
     print(f"loaded {len(night_images)} night images")

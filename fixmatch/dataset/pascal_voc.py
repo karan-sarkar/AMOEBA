@@ -87,10 +87,221 @@ def get_pascal_bdd_day_night(args, data_dir):
 
 """
 
+def get_pascal_bdd_res_city_cyclegan(args, data_dir):
+    #### we only load the 'converted night images'
+    image_folder = '/data/bdd/cyclegan/res_city_scenario'
+    source = 'res'
+
+    keep_difficult = True
+    train_cut = args.num_labeled
+
+    labeled_dataset = PascalVOCFixmatch(image_folder,
+                                        split = 'train',
+                                        keep_difficult = keep_difficult,
+                                        transform = transform_train)
+
+    dataset_len = len(labeled_dataset)
+
+    mean = [0.485, 0.456, 0.406]
+    std = [0.229, 0.224, 0.225]
+    image_size = (args.image_height, args.image_width)
+    tfm = TransformFixMatch(mean=mean, std=std, image_size=image_size)
+
+    unlabeled_dataset = PascalVOCFixmatch(image_folder,
+                                          split='train',
+                                          keep_difficult=keep_difficult,
+                                          transform=tfm)
+
+    test_dataset = PascalVOCFixmatch(image_folder,
+                                     split='val',
+                                     keep_difficult=keep_difficult,
+                                     transform=transform_val)
+
+    source_image_folder = f'/data/bdd/ssd_sgr/{source}'
+    day_test_dataset = PascalVOCFixmatch(source_image_folder,
+                                           split = 'val',
+                                           keep_difficult = keep_difficult,
+                                           transform = transform_val)
+
+
+    labeled_indices = np.arange(train_cut).astype(np.int32)
+    unlabeled_indices = np.arange(train_cut, dataset_len)
+
+    labeled_set = torch.utils.data.Subset(labeled_dataset, labeled_indices)
+
+    unlabeled_set = torch.utils.data.Subset(unlabeled_dataset, unlabeled_indices)
+
+    #### let's shorten the test_dataset, we will use 1000 examples
+    test_len = 1000
+    test_indices = np.arange(test_len).astype(np.int32)
+    night_test_dataset = torch.utils.data.Subset(test_dataset, test_indices)
+
+    day_test_dataset = torch.utils.data.Subset(day_test_dataset, test_indices)
+
+
+    return labeled_set, unlabeled_set, (day_test_dataset, night_test_dataset)
+
+
+
+
+
+def get_pascal_bdd_res_city(args, data_dir):
+    city_data_folder = '/srv/data/jbang36/bdd/ssd_sgr/city street'
+    res_data_folder = '/srv/data/jbang36/bdd/ssd_sgr/residential'
+
+    keep_difficult = True  # use objects considered difficult to detect?
+    train_cut = args.num_labeled
+
+    res_labeled_dataset = PascalVOCFixmatch(res_data_folder,
+                                              split='train',
+                                              keep_difficult=keep_difficult,
+                                              transform=transform_train)
+
+    mean = [0.485, 0.456, 0.406]
+    std = [0.229, 0.224, 0.225]
+    image_size = (args.image_height, args.image_width)
+    tfm = TransformFixMatch(mean=mean, std=std, image_size=image_size)
+
+    city_unlabeled_dataset = PascalVOCFixmatch(city_data_folder,
+                                                split='train',
+                                                keep_difficult=keep_difficult,
+                                                transform=tfm)
+
+    labeled_indices = np.arange(train_cut).astype(np.int32)
+
+    labeled_set = torch.utils.data.Subset(res_labeled_dataset, labeled_indices)
+    unlabeled_set = city_unlabeled_dataset
+
+    res_test_dataset = PascalVOCFixmatch(res_data_folder,
+                                         split='val',
+                                         keep_difficult=keep_difficult,
+                                         transform=transform_val)
+
+    city_test_dataset = PascalVOCFixmatch(city_data_folder,
+                                           split='val',
+                                           keep_difficult=keep_difficult,
+                                           transform=transform_val)
+
+
+    #### let's shorten the test_dataset, we will use 1000 examples
+    test_len = 1000
+    test_indices = np.arange(test_len).astype(np.int32)
+    res_test_dataset = torch.utils.data.Subset(res_test_dataset, test_indices)
+    city_test_dataset = torch.utils.data.Subset(city_test_dataset, test_indices)
+
+    return labeled_set, unlabeled_set, (res_test_dataset, city_test_dataset)
+
+def get_pascal_bdd_day_night_all(args, data_dir):
+    """
+        This is used for ALL train day data
+        """
+    day_data_folder = '/srv/data/jbang36/bdd/ssd_sgr/day'
+    night_data_folder = '/srv/data/jbang36/bdd/ssd_sgr/night'
+
+    keep_difficult = True  # use objects considered difficult to detect?
+
+    day_labeled_dataset = PascalVOCFixmatch(day_data_folder,
+                                            split='train',
+                                            keep_difficult=keep_difficult,
+                                            transform=transform_train)
+
+    night_labeled_dataset = PascalVOCFixmatch(night_data_folder,
+                                            split='train',
+                                            keep_difficult=keep_difficult,
+                                            transform=transform_train)
+
+    mean = [0.485, 0.456, 0.406]
+    std = [0.229, 0.224, 0.225]
+    image_size = (args.image_height, args.image_width)
+    tfm = TransformFixMatch(mean=mean, std=std, image_size=image_size)
+
+    day_unlabeled_dataset = PascalVOCFixmatch(day_data_folder,
+                                              split='train',
+                                              keep_difficult=keep_difficult,
+                                              transform=tfm)
+
+    night_unlabeled_dataset = PascalVOCFixmatch(night_data_folder,
+                                              split='train',
+                                              keep_difficult=keep_difficult,
+                                              transform=tfm)
+
+    day_test_dataset = PascalVOCFixmatch(day_data_folder,
+                                         split='val',
+                                         keep_difficult=keep_difficult,
+                                         transform=transform_val)
+
+    night_test_dataset = PascalVOCFixmatch(night_data_folder,
+                                           split='val',
+                                           keep_difficult=keep_difficult,
+                                           transform=transform_val)
+
+    labeled_set = torch.utils.data.ConcatDataset([day_labeled_dataset, night_labeled_dataset])
+    unlabeled_set = torch.utils.data.ConcatDataset([day_unlabeled_dataset, night_unlabeled_dataset])
+
+    #### let's shorten the test_dataset, we will use 1000 examples
+    test_len = 1000
+    test_indices = np.arange(test_len).astype(np.int32)
+    day_test_dataset = torch.utils.data.Subset(day_test_dataset, test_indices)
+    night_test_dataset = torch.utils.data.Subset(night_test_dataset, test_indices)
+
+    return labeled_set, unlabeled_set, (day_test_dataset, night_test_dataset)
+
+
+
+
+def get_pascal_bdd_day_all(args, data_dir):
+    """
+    This is used for ALL train day data
+    """
+    day_data_folder = '/srv/data/jbang36/bdd/ssd_sgr/day'
+    night_data_folder = '/srv/data/jbang36/bdd/ssd_sgr/night'
+
+    keep_difficult = True  # use objects considered difficult to detect?
+
+    day_labeled_dataset = PascalVOCFixmatch(day_data_folder,
+                                            split='train',
+                                            keep_difficult=keep_difficult,
+                                            transform=transform_train)
+
+
+    mean = [0.485, 0.456, 0.406]
+    std = [0.229, 0.224, 0.225]
+    image_size = (args.image_height, args.image_width)
+    tfm = TransformFixMatch(mean=mean, std=std, image_size=image_size)
+
+    day_unlabeled_dataset = PascalVOCFixmatch(day_data_folder,
+                                              split='train',
+                                              keep_difficult=keep_difficult,
+                                              transform=tfm)
+
+    day_test_dataset = PascalVOCFixmatch(day_data_folder,
+                                         split='val',
+                                         keep_difficult=keep_difficult,
+                                         transform=transform_val)
+
+    night_test_dataset = PascalVOCFixmatch(night_data_folder,
+                                           split='val',
+                                           keep_difficult=keep_difficult,
+                                           transform=transform_val)
+
+
+    labeled_set = day_labeled_dataset
+    unlabeled_set = day_unlabeled_dataset
+
+
+    #### let's shorten the test_dataset, we will use 1000 examples
+    test_len = 1000
+    test_indices = np.arange(test_len).astype(np.int32)
+    day_test_dataset = torch.utils.data.Subset(day_test_dataset, test_indices)
+    night_test_dataset = torch.utils.data.Subset(night_test_dataset, test_indices)
+
+    return labeled_set, unlabeled_set, (day_test_dataset, night_test_dataset)
+
+
 
 def get_pascal_bdd_day_night_cyclegan(args, data_dir):
     #### we only load the 'converted night images'
-    night_image_folder = '/data/bdd/cyclegan/'
+    night_image_folder = '/data/bdd/cyclegan/day_night_scenario'
 
     keep_difficult = True
     train_cut = args.num_labeled
@@ -143,8 +354,78 @@ def get_pascal_bdd_day_night_cyclegan(args, data_dir):
 
 
 
-
 def get_pascal_bdd_day_night(args, data_dir):
+    day_data_folder = '/srv/data/jbang36/bdd/ssd_sgr/day'
+    night_data_folder = '/srv/data/jbang36/bdd/ssd_sgr/night'
+
+    keep_difficult = True  # use objects considered difficult to detect?
+    train_cut = args.num_labeled
+
+    day_labeled_dataset = PascalVOCFixmatch(day_data_folder,
+                                        split='train',
+                                        keep_difficult=keep_difficult,
+                                        transform=transform_train)
+
+    night_labeled_dataset = PascalVOCFixmatch(night_data_folder,
+                                            split='train',
+                                            keep_difficult=keep_difficult,
+                                            transform=transform_train)
+
+    mean = [0.485, 0.456, 0.406]
+    std = [0.229, 0.224, 0.225]
+    image_size = (args.image_height, args.image_width)
+    tfm = TransformFixMatch(mean=mean, std=std, image_size=image_size)
+
+    day_unlabeled_dataset = PascalVOCFixmatch(day_data_folder,
+                                              split = 'train',
+                                              keep_difficult = keep_difficult,
+                                              transform = tfm)
+
+    night_unlabeled_dataset = PascalVOCFixmatch(night_data_folder,
+                                          split='train',
+                                          keep_difficult=keep_difficult,
+                                          transform=tfm)
+
+
+    day_test_dataset = PascalVOCFixmatch(day_data_folder,
+                                     split='val',
+                                     keep_difficult=keep_difficult,
+                                     transform=transform_val)
+
+    night_test_dataset = PascalVOCFixmatch(night_data_folder,
+                                     split='val',
+                                     keep_difficult=keep_difficult,
+                                     transform=transform_val)
+
+
+    day_dataset_len = len(day_labeled_dataset)
+    night_dataset_len = len(night_labeled_dataset)
+
+
+    labeled_indices = np.arange(train_cut).astype(np.int32)
+    day_unlabeled_indices = np.arange(train_cut, day_dataset_len)
+    night_unlabeled_indices = np.arange(train_cut, night_dataset_len)
+
+    day_labeled_set = torch.utils.data.Subset(day_labeled_dataset, labeled_indices)
+    night_labeled_set = torch.utils.data.Subset(night_labeled_dataset, labeled_indices)
+    labeled_set = torch.utils.data.ConcatDataset([day_labeled_set, night_labeled_set])
+
+    day_unlabeled_set = torch.utils.data.Subset(day_unlabeled_dataset, day_unlabeled_indices)
+    night_unlabeled_set = torch.utils.data.Subset(night_unlabeled_dataset, night_unlabeled_indices)
+
+    unlabeled_set = torch.utils.data.ConcatDataset([day_unlabeled_set, night_unlabeled_set])
+
+
+    #### let's shorten the test_dataset, we will use 1000 examples
+    test_len = 1000
+    test_indices = np.arange(test_len).astype(np.int32)
+    day_test_dataset = torch.utils.data.Subset(day_test_dataset, test_indices)
+    night_test_dataset = torch.utils.data.Subset(night_test_dataset, test_indices)
+
+    return labeled_set, unlabeled_set, (day_test_dataset, night_test_dataset)
+
+
+def get_pascal_bdd_day_night_unlabeled_night(args, data_dir):
     day_data_folder = '/srv/data/jbang36/bdd/ssd_sgr/day'
     night_data_folder = '/srv/data/jbang36/bdd/ssd_sgr/night'
 

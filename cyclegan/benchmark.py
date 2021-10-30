@@ -13,14 +13,24 @@ import os
 import argparse
 import json
 import shutil
+from tqdm import tqdm
 
 
-def move_images(filenames, test_folder_name):
+#SCENARIO_NAME = 'day_night_scenario'
+#SOURCE = 'day'
+#TARGET = 'night'
+
+SCENARIO_NAME = 'res_city_scenario'
+SOURCE = 'res'
+TARGET = 'city'
+
+
+def copy_images(filenames, test_folder_name):
     """
     Conditions: set the filenames exactly the same, this is necessary for loading the annotations correctly
     """
     ### we need to create a temporary directory with the filenames
-    dst = f'/data/bdd/cyclegan/day_night_scenario/{test_folder_name}'
+    dst = f'/data/bdd/cyclegan/{SCENARIO_NAME}/{test_folder_name}'
     if len(filenames) == 0:
         return
     if os.path.exists(dst):
@@ -28,72 +38,68 @@ def move_images(filenames, test_folder_name):
 
     os.makedirs(dst, exist_ok=True)
 
-    for filename in filenames:
+    for filename in tqdm(filenames):
         name = os.path.basename(filename)
         final_dst = os.path.join(dst, name)
         shutil.copy(filename, final_dst)
 
     return
 
-def prepare_bdd(args):
-    ### this means we transfer the day images to night images
-    ### hence we need the filenames for all the day images
 
-    ### steps would be 1. load the json TRAIN images,
-    ### we use move images to move them to a different location
-    files = ['day', 'night']
+def transfer_images(args):
+    print(f"transferring images to testA, testB folders")
+    files = [SOURCE, TARGET]
     tests = ['testA', 'testB']
     for i, file in enumerate(files):
         train_file = os.path.join(f'/data/bdd/ssd_sgr/{file}/TRAIN_images.json')
         with open(train_file, 'r') as j:
             image_files = json.load(j)
 
-            move_images(image_files, tests[i])
+            copy_images(image_files, tests[i])
 
 
-    ### when preparing the bdd, we need to create new
-    # TRAIN_images.json / TRAIN_objects.json / VAL_images.json / VAL_objects.json
 
-    #### TRAIN_images.json should be the converted files -- we need to know where the CYCLEGAN spits out the files
-    #### TRAIN_objects.json should be a day annotations
-    #### VAL_images.json should be night images
-    #### VAL_objecst.json should be night annotations
 
+def prepare_bdd(args):
+    transfer_images(args)
     image_output_folder = args.cyclegan_output
-    # /data/bdd/cyclegan/day_night_scenario
-
-    ## we need to convert the filenames in day / night folder to fit ada-01 instead of ada-03
     base = '/data/bdd/ssd_sgr/'
 
     ### do TRAIN_images.json
-    directory = os.path.join(f'/data/bdd/ssd_sgr/day', 'TRAIN_images.json')
+    directory = os.path.join(f'/data/bdd/ssd_sgr/{SOURCE}', 'TRAIN_images.json')
     new_image_files = []
     with open(directory, 'r') as j:
         image_files = json.load(j)
 
     ## change the beginning part
+    ### because transfer has taken place, TRAIN_images should be in args.cyclegan_output -- ~~~~/converted/
+    ### we save this TRAIN_iamges.json to the ~~~~~
     for image_file in image_files:
+
         filename = os.path.basename(image_file)
         new_image_file = os.path.join(image_output_folder, filename)
         new_image_files.append(new_image_file)
     ### we need to save the file
-    with open(directory, 'w') as j:
+
+    output_folder = os.path.dirname(image_output_folder)
+    destination = os.path.join(output_folder, 'TRAIN_images.json')
+    with open(destination, 'w') as j:
         json.dump(new_image_files, j)
 
     ### do TRAIN_objects.json
     ### we just need to copy this
     output_folder = os.path.dirname(image_output_folder)
-    directory = os.path.join(f'{base}/day', 'TRAIN_objects.json')
+    directory = os.path.join(f'{base}/{SOURCE}', 'TRAIN_objects.json')
     destination = os.path.join(output_folder, 'TRAIN_objects.json')
     shutil.copy(directory, destination)
 
     ### do VAL_images.json
-    directory = os.path.join(f'{base}/night', 'VAL_images.json')
+    directory = os.path.join(f'{base}/{TARGET}', 'VAL_images.json')
     destination = os.path.join(output_folder, 'VAL_images.json')
     shutil.copy(directory, destination)
 
     ### do VAL_objects.json
-    directory = os.path.join(f"{base}/night", 'VAL_objects.json')
+    directory = os.path.join(f"{base}/{TARGET}", 'VAL_objects.json')
     destination = os.path.join(output_folder, 'VAL_objects.json')
     shutil.copy(directory, destination)
 
@@ -116,14 +122,15 @@ def prepare_bdd(args):
 
 
 def one_time_run():
+    print(f'converting _images.json files from ada-03 format to ada-01 format')
     import json
     ## we need to convert the filenames in day / night folder to fit ada-01 instead of ada-03
     files = ['TRAIN', 'VAL']
-    partitions = ['day', 'night']
+    partitions = [SOURCE, TARGET]
     base = '/data/bdd/ssd_sgr/'
     image_file_location = '/data/bdd/images/100k/'
     for partition in partitions:
-        for file in files:
+        for file in tqdm(files):
             directory = os.path.join(f'/data/bdd/ssd_sgr/{partition}', f'{file}_images.json')
             new_image_files = []
             with open(directory, 'r') as j:
@@ -141,14 +148,74 @@ def one_time_run():
                 json.dump(new_image_files, j)
 
 
+def bug_fix():
+    ### currently, ssd_sgr/day/TRAIN_images.json is buggy
+    ### the filenames refer to the wrong thing....
+
+    directory = os.path.join(f'/data/bdd/ssd_sgr/{SOURCE}', 'TRAIN_images.json')
+    image_output_folder = '/data/bdd/images/100k/train'
+    new_image_files = []
+    with open(directory, 'r') as j:
+        image_files = json.load(j)
+
+    ## change the beginning part
+    for image_file in image_files:
+        filename = os.path.basename(image_file)
+        new_image_file = os.path.join(image_output_folder, filename)
+        new_image_files.append(new_image_file)
+    ### we need to save the file
+
+
+    with open(directory, 'w') as j:
+        json.dump(new_image_files, j)
+
+
+def reshape_converted(old_directory, new_directory):
+    """
+    After the converted images have been generated, we need to reshape the images
+    This is because the output of cyclegan gives us 416x416 image whereas
+    the images we work with are 720x1280.
+    """
+    from PIL import Image
+    ### first load all the images in the old directory
+    files = os.listdir(old_directory)
+    files = sorted(files)
+    new_filenames = []
+
+    file_names = []
+    for file in files:
+        file_names.append(os.path.join(old_directory, file))
+        new_filenames.append(os.path.join(new_directory, file))
+
+    images = []
+    n_images = len(file_names)
+
+
+    for i in tqdm(range(n_images)):
+        file_name = file_names[i]
+        img = Image.open(file_name)
+        img = img.resize((1280, 720)) ### we need to flip this because for PIL it's width, length
+
+        img.save(new_filenames[i], "JPEG")
+
+
+
+
+    return images
+
+
+
+
+
 
 if __name__ == "__main__":
-    #one_time_run()
+    one_time_run()
+    #bug_fix()
 
 
-    parser = argparse.ArgumentParser(description='Process some integers.')
+    parser = argparse.ArgumentParser(description='Setting up directories for conversion...')
     parser.add_argument('--dataset', type = str, help='which dataset to work on')
-    parser.add_argument('--cyclegan_output', type=str, help='directory to which the cyclegan outputs its images')
+    parser.add_argument('--cyclegan-output', type=str, help='directory to which the cyclegan outputs its images')
 
     args = parser.parse_args()
 

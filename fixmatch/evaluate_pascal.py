@@ -64,7 +64,7 @@ def evaluate_fixmatch(args, test_loader, model):
 
             APs, mAP = calculate_mAP(det_boxes, det_labels, det_scores, true_boxes, true_labels, true_difficulties)
 
-        elif args.dataset == 'pascal_bdd' or args.dataset == 'pascal_bdd_day_night':
+        elif 'pascal_bdd' in args.dataset:
 
             APs, mAP = calculate_mAP_bdd(det_boxes, det_labels, det_scores, true_boxes, true_labels, true_difficulties)
 

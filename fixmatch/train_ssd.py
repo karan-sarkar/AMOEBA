@@ -137,7 +137,7 @@ def main():
         momentum = 0.9  # momentum
         weight_decay = 5e-4  # weight decay
 
-    elif args.dataset == 'pascal_bdd_day_night':
+    elif 'pascal_bdd_day' in args.dataset:
         from fixmatch.utils.bdd_utils import label_map
         labeled_dataset, unlabeled_dataset, (test_day_dataset, test_night_dataset) = DATASET_GETTERS[args.dataset](
             args, data_dir)
@@ -148,16 +148,18 @@ def main():
         weight_decay = 5e-4  # weight decay
 
 
-    elif args.dataset == 'pascal_bdd_day_night_cyclegan':
+    elif 'pascal_bdd_res' in args.dataset:
+        print(f'loading dataset name: {args.dataset}')
+
         from fixmatch.utils.bdd_utils import label_map
         labeled_dataset, unlabeled_dataset, (test_day_dataset, test_night_dataset) = DATASET_GETTERS[args.dataset](
             args, data_dir)
-        n_classes = len(label_map)
+        n_classes = len(label_map)  # number of different types of objects
         args.num_classes = n_classes
-        lr = 1e-3
-        momentum = 0.9
-        weight_decay = 5e-4
-
+        lr = 1e-3  # learning rate
+        momentum = 0.9  # momentum
+        weight_decay = 5e-4  # weight decay
+        print(f"printing stats: {n_classes}, batch size: {args.batch_size}")
 
     elif args.dataset == 'pascal_bdd':
         from fixmatch.utils.bdd_utils import label_map
@@ -203,7 +205,7 @@ def main():
     unlabeled_trainloader = DataLoader(
         unlabeled_dataset,
         sampler=train_sampler(unlabeled_dataset),
-        batch_size=args.batch_size * args.mu,
+        batch_size=args.batch_size,
         num_workers=args.num_workers,
         drop_last=True,
         pin_memory=True,
@@ -320,6 +322,10 @@ def main():
 
 def train_ssd(args, labeled_trainloader, unlabeled_trainloader, test_loaders, test_datasets,
                    model, optimizer, ema_model, scheduler):
+
+
+    import time
+    st = time.perf_counter()
     if args.amp:
         from apex import amp
     global best_acc
@@ -388,7 +394,8 @@ def train_ssd(args, labeled_trainloader, unlabeled_trainloader, test_loaders, te
 
 
             (loss1, _) = model(inputs_x.tensors, targets=targets_x, labeled=True)
-            Lx = loss1
+
+            ### sometimes the loss1 is inf (probably when the boxes are of size 0
 
             forward_labeled_time.update(time.time() - end)
 
@@ -397,24 +404,35 @@ def train_ssd(args, labeled_trainloader, unlabeled_trainloader, test_loaders, te
                                     targets=inputs_u_s.tensors, labeled=False,
                                     threshold=args.threshold, image_sizes=inputs_u_w.sizes)
 
-            if loss2 is None:  ### this occurs when there is no box proposal... maybe we need to see how many times this happens...
+            if torch.isinf(loss1):
+                Lx = torch.tensor(0).to(args.device)
 
-                Lu = torch.tensor(0).to(args.device)
-                #loss = Lx + args.lambda_u * Lu
-
-            else:
+                if loss2 is None:
+                    loss2 = torch.tensor(0).to(args.device)
                 loss2 = torch.nan_to_num(loss2)
                 Lu = loss2
-            loss = Lx + args.lambda_u * Lu
 
-            forward_time.update(time.time() - end)
+                loss = Lx + args.lambda_u * Lu
 
+                forward_time.update(time.time() - end)
 
-            if args.amp:
-                with amp.scale_loss(loss, optimizer) as scaled_loss:
-                    scaled_loss.backward()
             else:
-                loss.backward()
+                Lx = loss1
+
+                if loss2 is None:
+                    loss2 = torch.tensor(0).to(args.device)
+                loss2 = torch.nan_to_num(loss2)
+                Lu = loss2
+
+                loss = Lx + args.lambda_u * Lu
+
+                forward_time.update(time.time() - end)
+
+                if args.amp:
+                    with amp.scale_loss(loss, optimizer) as scaled_loss:
+                        scaled_loss.backward()
+                else:
+                    loss.backward()
 
 
             loss_dict = {'total_loss': loss,
@@ -484,11 +502,15 @@ def train_ssd(args, labeled_trainloader, unlabeled_trainloader, test_loaders, te
             args.writer.add_scalar('train/1.train_loss', losses.avg, epoch)
             args.writer.add_scalar('train/2.train_loss_x', losses_x.avg, epoch)
             args.writer.add_scalar('train/3.train_loss_u', losses_u.avg, epoch)
+            args.writer.add_scalar('train/4.train_time', int(time.perf_counter() - st), epoch)
 
 
-            if args.dataset == 'pascal_bdd_day_night' or args.dataset == 'pascal_bdd_day_night_cyclegan':
+            if 'pascal_bdd_day' in args.dataset:
                 args.writer.add_scalar('test/1.day_mAP', day_results, epoch)
                 args.writer.add_scalar('test/2.night_mAP', night_results, epoch)
+            elif 'pascal_bdd_res' in args.dataset:
+                args.writer.add_scalar('test/1.res_mAP', day_results, epoch)
+                args.writer.add_scalar('test/2.city_mAP', night_results, epoch)
 
             elif not (args.dataset == 'pascal_voc' or args.dataset == 'pascal_bdd'):
                 args.writer.add_scalar('test/1.day_mAP', day_results['bbox']['AP'], epoch)
@@ -637,7 +659,9 @@ def valid_p2(dataset, preds):
 
 @torch.no_grad()
 def valid(args, loader, dataset, m, device):
-    if args.dataset in  ['pascal_voc', 'pascal_bdd', 'pascal_bdd_day_night', 'pascal_bdd_day_night_cyclegan']:
+    if 'pascal_bdd_day' in args.dataset \
+            or 'pascal_bdd_res' in args.dataset or \
+            args.dataset in  ['pascal_voc', 'pascal_bdd']:
         pp = PrettyPrinter()
         from fixmatch.evaluate_pascal import evaluate_fixmatch as evaluate_voc
         APs, mAP = evaluate_voc(args, loader, m)
@@ -702,7 +726,10 @@ def get_fixmatch_arguments():
     parser.add_argument('--num-workers', type=int, default=1,
                         help='number of workers')
     parser.add_argument('--dataset', default='bdd_fcos', type=str,
-                        choices=['cifar10', 'cifar100', 'bdd', 'bdd_fcos', 'pascal_voc', 'pascal_bdd', 'pascal_bdd_day_night', 'pascal_bdd_day_night_cyclegan'],
+                        choices=['cifar10', 'cifar100', 'bdd', 'bdd_fcos', 'pascal_voc',
+                                 'pascal_bdd', 'pascal_bdd_day_night', 'pascal_bdd_day_night_cyclegan',
+                                 'pascal_bdd_day_all', 'pascal_bdd_day_night_all',
+                                 'pascal_bdd_res_city', 'pascal_bdd_res_city_cyclegan'],
                         help='dataset name')
     parser.add_argument('--num-labeled', type=int, default=100,
                         help='number of labeled data')

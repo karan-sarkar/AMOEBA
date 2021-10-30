@@ -1,0 +1,21 @@
+We define the files / runs needed to make everything work
+
+COMMON
+
+1. Creating new annotations for pascal_voc type runs
+-- fixmatch/utils/bdd_utils.py
+
+
+FIXMATCH
+
+
+
+
+
+CYCLEGAN + SSD
+
+1. Preparing CycleGAN results for SSD training, generating the proper annotations
+-- run fixmatch/utils/bdd_utils.py on ada-03
+-- scp commands to move annotations (TRAIN_images.json, TRAIN_objects.json....) from ada-03 to ada-01
+-- cyclegan/benchmark.py one_time_run() (this converts the filenames correctly)
+-- cyclegan/benchmark.py (this moves the annotations to the correct locations)
