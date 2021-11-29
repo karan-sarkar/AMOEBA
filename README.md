@@ -12,6 +12,7 @@ The relevant files and directory are as follows:
 6. CYCLEGAN training: `cyclegan/train_cyclegan.py`
 7. Drift Recovery with CYCLEGAN+: `cyclegan/dirft_recovery_cyclegan.bash`
 
+
 ### Example Images of SSD Retrained with AMOEBA
 
 ![alt text](images/amoebaA.jpg)
@@ -30,4 +31,5 @@ The relevant files and directory are as follows:
 ![alt text](images/baselineD.jpg)
 ![alt text](images/baselineE.jpg)
 ![alt text](images/baselineF.jpg)
+
 
