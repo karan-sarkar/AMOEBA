@@ -1,6 +1,6 @@
 """General-purpose test script for image-to-image translation.
 
-Once you have trained your model with train.py, you can use this script to test the model.
+Once you have trained your model with train_cyclegan.py, you can use this script to test the model.
 It will load a saved model from --checkpoints_dir and save the results to --results_dir.
 
 It first creates model and dataset given the option. It will hard-code some parameters.

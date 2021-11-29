@@ -1,22 +1,13 @@
-import torch
-import torchvision
-import torch.nn as nn
 import torch.optim as optim
-import torch.nn.functional as F
-import torchvision.utils as vutils
 import matplotlib.pyplot as plt
-import numpy as np
-import math
-import json
-import tqdm
 import time
 import argparse
-from pandas import pd
+from sklearn.manifold import TSNE
 
 
-from bdd import *
-from util import *
-from ssd import *
+
+from others.bdd import *
+from others.ssd import *
 
 
 EPOCHS = 100
@@ -100,13 +91,9 @@ def make_dataset(train, flag):
     
     img_list = []
     idx = []
-    weather = []
-    time = []
     for i in tqdm.tqdm(range(len(data))):
-        if (flag == 'all' or data[i]['attributes'][ATTRIBUTE] == flag) and data[i]['labels'] != None:
+        if data[i]['attributes'][ATTRIBUTE] == flag and data[i]['labels'] != None:
             img_list.append(header + data[i]['videoName'] + '.jpg')
-            weather.append(data[i]['attributes']['weather'])
-            time.append(data[i]['attributes']['timeofday'])
             idx.append(i)
     if sample > 0 and flag == TARGET_FLAG and train:
         np.random.seed(0)
@@ -119,8 +106,6 @@ def make_dataset(train, flag):
         idx = [idx[p] for p in perm]
         img_list = [img_list[p] for p in perm]
     dset = BDD(img_list, idx, json_file, train)
-    df = pd.DataFrame(list(zip(img_list, time, weather)),columns =['Name', 'timeofday', 'weather'])
-    df.to_csv('drift_data.csv')
     return dset
 
 source_train = make_dataset(True, SOURCE_FLAG)
@@ -182,100 +167,121 @@ def train(train_loader, test_loader, model, crit, optimizer, epoch, print_freq):
     train_loader = load(train_loader, False)
     test = iter(test_loader)
     train = iter(train_loader)
-    for i in range(min(len(test_loader), len(train_loader))-2):
-        '''
-        try:
-        '''
-        (target_images, target_boxes, target_labels) = next(test)
-        (source_images, source_boxes, source_labels) = next(train)
-        '''
-        except:
-            break
-            test = iter(load(test_loader, False))
+    dlosses1 = []
+    blosses1 = []
+    dlosses2 = []
+    blosses2 = []
+    tsne = TSNE(n_components=2, random_state=0, verbose = 10)
+    generator = nn.DataParallel(model.module.base)
+    source_f = []
+    target_f = []
+    
+    with torch.no_grad():
+        for i in range(min(len(test_loader), len(train_loader))-2):
+            '''
+            try:
+            '''
             (target_images, target_boxes, target_labels) = next(test)
-        '''
-        data_time.update(time.time() - start)
-        
-        # Move to default device
-        source_images = source_images.to(device)  # (batch_size (N), 3, 300, 300)
-        source_boxes = [b.to(device) for b in source_boxes]
-        source_labels = [l.to(device) for l in source_labels]
-        
-        target_images = target_images.to(device)  # (batch_size (N), 3, 300, 300)
-        target_boxes = [b.to(device) for b in target_boxes]
-        target_labels = [l.to(device) for l in target_labels]
-        
-        for _ in range(class_iterations):
-            g_opt.zero_grad()
-            d_opt.zero_grad()
-            predicted_source_locs1, predicted_source_scores1, predicted_source_locs2, predicted_source_scores2 = model(source_images)  # (N, 8732, 4), (N, 8732, n_classes)
-            loss = criterion(predicted_source_locs1, predicted_source_scores1, source_boxes, source_labels)  # scalar
-            losses.update(loss.item(), source_images.size(0))
-            loss += criterion(predicted_source_locs2, predicted_source_scores2, source_boxes, source_labels)  # scalar
-            loss.backward()
-            torch.nn.utils.clip_grad_norm_(model.parameters(), 10)
-            g_opt.step()
-            d_opt.step()
+            (source_images, source_boxes, source_labels) = next(train)
+            '''
+            except:
+                break
+                test = iter(load(test_loader, False))
+                (target_images, target_boxes, target_labels) = next(test)
+            '''
+            data_time.update(time.time() - start)
             
-            del predicted_source_locs1, predicted_source_scores1, predicted_source_locs2, predicted_source_scores2, loss
-        
-        d_opt.zero_grad()
-        predicted_source_locs1, predicted_source_scores1, predicted_source_locs2, predicted_source_scores2 = model(source_images)  # (N, 8732, 4), (N, 8732, n_classes)
-        predicted_target_locs1, predicted_target_scores1, predicted_target_locs2, predicted_target_scores2 = model(target_images)  # (N, 8732, 4), (N, 8732, n_classes)
-        loss = criterion(predicted_source_locs1, predicted_source_scores1, source_boxes, source_labels)  # scalar
-        loss += criterion(predicted_source_locs2, predicted_source_scores2, source_boxes, source_labels)
-        bloss, dloss = criterion.discrep(predicted_target_locs1.detach(), predicted_target_scores1.detach(), predicted_target_locs2, predicted_target_scores2)
-        bloss2, dloss2 = criterion.discrep(predicted_source_locs1.detach(), predicted_source_scores1.detach(), predicted_source_locs2, predicted_source_scores2)
-        loss -= max_comp * (bloss + dloss - bloss2 - dloss2)
-        loss.backward()
-        torch.nn.utils.clip_grad_norm_(model.parameters(), clipping)
-        d_opt.step()
-        dlosses.update(dloss.item(), target_images.size(0))
-        blosses.update(bloss.item(), target_images.size(0))
-        del predicted_source_locs1, predicted_source_scores1, predicted_source_locs2, predicted_source_scores2, loss
-        del predicted_target_locs1, predicted_target_scores1, predicted_target_locs2, predicted_target_scores2, dloss, bloss
-        
-        for _ in range(iterations):
-            g_opt.zero_grad()
-            c_opt.zero_grad()
+            # Move to default device
+            source_images = source_images.to(device)  # (batch_size (N), 3, 300, 300)
+            source_boxes = [b.to(device) for b in source_boxes]
+            source_labels = [l.to(device) for l in source_labels]
+            
+            target_images = target_images.to(device)  # (batch_size (N), 3, 300, 300)
+            target_boxes = [b.to(device) for b in target_boxes]
+            target_labels = [l.to(device) for l in target_labels]
+            
+            source_features = generator(source_images)
+            source_features = torch.cat([x.view(BATCH_SIZE, -1) for x in source_features], 1).cpu().numpy()
+            target_features = generator(target_images)
+            target_features = torch.cat([x.view(BATCH_SIZE, -1) for x in target_features], 1).cpu().numpy()
+            source_f.append(source_features)
+            target_f.append(target_features)
+            
+            
+            
             predicted_source_locs1, predicted_source_scores1, predicted_source_locs2, predicted_source_scores2 = model(source_images)  # (N, 8732, 4), (N, 8732, n_classes)
-            loss = criterion(predicted_source_locs1, predicted_source_scores1, source_boxes, source_labels)  # scalar
-            loss += criterion(predicted_source_locs2, predicted_source_scores2, source_boxes, source_labels)  # scalar
             predicted_target_locs1, predicted_target_scores1, predicted_target_locs2, predicted_target_scores2 = model(target_images)  # (N, 8732, 4), (N, 8732, n_classes)
+            loss = criterion(predicted_source_locs1, predicted_source_scores1, source_boxes, source_labels)  # scalar
+            loss += criterion(predicted_source_locs2, predicted_source_scores2, source_boxes, source_labels)
             bloss, dloss = criterion.discrep(predicted_target_locs1.detach(), predicted_target_scores1.detach(), predicted_target_locs2, predicted_target_scores2)
-            loss += min_comp * (bloss + dloss)
-            loss.backward()
-            torch.nn.utils.clip_grad_norm_(model.parameters(), clipping)
-            c_opt.step()
-            g_opt.step()
-            del predicted_target_locs1, predicted_target_scores1, predicted_target_locs2, predicted_target_scores2, loss, bloss, dloss
-        model.module.freeze("top", True)
-        
-        predicted_target_locs1, predicted_target_scores1, predicted_target_locs2, predicted_target_scores2 = model(target_images)
-        loss = criterion(predicted_target_locs1, predicted_target_scores1, target_boxes, target_labels)  # scalar
-        tlosses.update(loss.item(), target_images.size(0))
-        del predicted_target_locs1, predicted_target_scores1, predicted_target_locs2, predicted_target_scores2, loss
-        
-        del source_images, source_boxes, source_labels, target_images, target_boxes, target_labels
-        
-        batch_time.update(time.time() - start)
-        start = time.time()
+            bloss2, dloss2 = criterion.discrep(predicted_source_locs1.detach(), predicted_source_scores1.detach(), predicted_source_locs2, predicted_source_scores2)
+            loss -= max_comp * (bloss + dloss - bloss2 - dloss2)
+            dlosses1.append(float(dloss))
+            blosses1.append(float(bloss))
+            dlosses2.append(float(dloss2))
+            blosses2.append(float(bloss2))
+            
+            dlosses.update(dloss.item(), target_images.size(0))
+            blosses.update(bloss.item(), target_images.size(0))
+            del predicted_source_locs1, predicted_source_scores1, predicted_source_locs2, predicted_source_scores2, loss
+            del predicted_target_locs1, predicted_target_scores1, predicted_target_locs2, predicted_target_scores2, dloss, bloss
+            
+            
+            del source_images, source_boxes, source_labels, target_images, target_boxes, target_labels
+            
+            batch_time.update(time.time() - start)
+            start = time.time()
 
-        optimizer = (g_opt, c_opt, d_opt)
-        # Print status
-        if i % print_freq == 0:
-            print('Epoch: [{0}][{1}/{2}]\t'
-                  'Batch Time {batch_time.val:.3f} ({batch_time.avg:.3f})'
-                  'Data Time {data_time.val:.3f} ({data_time.avg:.3f})'
-                  'Source Loss {loss.val:.4f} ({loss.avg:.4f})'
-                  'Discrep Loss {dloss.val:.4f} ({dloss.avg:.4f})'
-                  'Box Loss {bloss.val:.4f} ({bloss.avg:.4f})'
-                  'Target Loss {tloss.val:.4f} ({tloss.avg:.4f})'.format(epoch, i, min(len(train), len(test)),
-                                                                  batch_time=batch_time,
-                                                                  data_time=data_time, loss=losses, dloss = dlosses, bloss = blosses, tloss = tlosses))
-        if i % 5 == 0:
-            torch.save((jm, optimizer), 'mcd_bdd100k-9_' + path +  str(epoch + mod + 1) + '.pth')
-                                                      
+            optimizer = (g_opt, c_opt, d_opt)
+            # Print status
+            if i % print_freq == 0:
+                print('Epoch: [{0}][{1}/{2}]\t'
+                      'Batch Time {batch_time.val:.3f} ({batch_time.avg:.3f})'
+                      'Data Time {data_time.val:.3f} ({data_time.avg:.3f})'
+                      'Source Loss {loss.val:.4f} ({loss.avg:.4f})'
+                      'Discrep Loss {dloss.val:.4f} ({dloss.avg:.4f})'
+                      'Box Loss {bloss.val:.4f} ({bloss.avg:.4f})'
+                      'Target Loss {tloss.val:.4f} ({tloss.avg:.4f})'.format(epoch, i, min(len(train), len(test)),
+                                                                      batch_time=batch_time,
+                                                                      data_time=data_time, loss=losses, dloss = dlosses, bloss = blosses, tloss = tlosses))
+            if i % 5 == 0:
+                torch.save((jm, optimizer), 'mcd_bdd100k-9_' + path +  str(epoch + mod + 1) + '.pth')
+            
+            if i > 100:
+                break
+    '''
+    source_f = np.concatenate(source_f, 0)
+    target_f = np.concatenate(target_f, 0)
+    
+    source_2d = tsne.fit_transform(source_f)
+    target_2d = tsne.fit_transform(target_f)
+    
+    plt.scatter(source_2d[:, 0], source_2d[:, 1], c='r', label='Source Features')
+    plt.scatter(target_2d[:, 0], target_2d[:, 1], c='b', label='Target Features')
+    plt.legend()
+    plt.savefig('AMOEBA-features.pdf')
+    '''
+    '''
+    plt.clf()
+    plt.style.use('seaborn-deep')
+
+    plt.hist([np.array(dlosses2), np.array(dlosses1)], 30, label=['Source Class Discrepancy', 'Target Class Discrepancy'])
+    plt.legend(loc='upper right', fontsize = 20)
+    plt.xlabel('')
+    plt.savefig('Supervised-class-discrep.pdf')
+   '''
+    plt.clf()
+    
+    plt.style.use('seaborn-deep')
+    bins = np.linspace(0, 0.5, 30)
+
+    plt.hist([np.array(blosses2), np.array(blosses1)], 30, label=[SOURCE_FLAG+' Box Discrepancy', TARGET_FLAG+' Box Discrepancy'])
+    plt.xlabel('Bounding Box Discrepancy', fontsize = 20)
+    plt.ylabel('Frequency', fontsize = 20)
+    plt.legend(loc='upper right', fontsize = 20)
+
+    plt.savefig('Supervised' +SOURCE_FLAG + TARGET_FLAG+ '-discrep.pdf')
+                                                          
 
 def test(test_loader, model, criterion, epoch):
     model.eval()  # training mode enables dropout
@@ -330,9 +336,9 @@ def test(test_loader, model, criterion, epoch):
     
 for epoch in range(EPOCHS):
     temp = MultiBoxLoss(priors_cxcy=crit.priors_cxcy.clone()).to(device)
-    if (epoch % 2 == 0 and epoch > 0) or (test_first and epoch == 0):
-       test(target_test, jm, crit, epoch)
-       test(source_test, jm, crit, epoch)
+    #if (epoch % 2 == 0 and epoch > 0) or (test_first and epoch == 0):
+    #   test(target_test, jm, crit, epoch)
+    #   test(source_test, jm, crit, epoch)
     train(source_train, target_train, jm, crit, opt, epoch, 1)
     torch.save((jm, opt), 'mcd_bdd100k-9_' + path + str(epoch + mod + 1) + '.pth')
     jm,opt = torch.load('mcd_bdd100k-9_' + path+ str(epoch + mod + 1) + ".pth")

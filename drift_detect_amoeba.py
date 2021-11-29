@@ -1,13 +1,10 @@
 from torchvision import transforms
-from util import *
-from PIL import Image, ImageDraw, ImageFont
-from os import listdir
-from os.path import isfile, join
-from random import sample
+from others.util import *
+from PIL import Image
 import tqdm
 import argparse
 import torch
-from collections import Counter
+
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 import pandas as pd
 

@@ -1,5 +1,5 @@
 from torchvision import transforms
-from util import *
+from others.util import *
 from PIL import Image, ImageDraw, ImageFont
 from os import listdir
 from os.path import isfile, join

@@ -14,12 +14,9 @@ import os
 import random
 import shutil
 import time
-from collections import OrderedDict
 
 import numpy as np
 import torch
-import torch.nn.functional as F
-import torch.optim as optim
 from torch.optim.lr_scheduler import LambdaLR
 from torch.utils.data import DataLoader, RandomSampler, SequentialSampler
 from torch.utils.data.distributed import DistributedSampler
@@ -34,7 +31,7 @@ sys.path.append('/nethome/jbang36/k_amoeba')
 
 ### we will make modification to this
 from fixmatch.dataset import DATASET_GETTERS
-from fixmatch.utils import AverageMeter, accuracy
+from fixmatch.utils import AverageMeter
 
 from fixmatch.models.ema import ModelEMA
 
@@ -42,16 +39,12 @@ from fixmatch.models.ssd.argument import get_args
 
 from fixmatch.models.ssd.ssd import SSD300
 from fixmatch.dataset.bdd import collate_fn as bdd_collate_fn
-from fixmatch.dataset.bdd import collate_fn2 as bdd_unlabeled_collate_fn
 
-from fixmatch.distributed import get_rank, all_gather, reduce_loss_dict
-from fixmatch.evaluate_coco import evaluate_fixmatch, evaluate
+from fixmatch.others.distributed import get_rank, all_gather, reduce_loss_dict
+from fixmatch.others.evaluate_coco import evaluate
 
 from pprint import PrettyPrinter
-#from benchmark.ssd_sgr.eval import evaluate_fixmatch as evaluate_voc
-from fixmatch.utils.ssd_sgr_utils import label_map
-
-
+# from benchmark.ssd_sgr.eval import evaluate_fixmatch as evaluate_voc
 
 logger = logging.getLogger(__name__)
 best_acc = 0
@@ -113,8 +106,6 @@ def main():
     ################### ----------------------------------- ###################
     ###########################################################################
 
-
-
     ###########################################################################
     ################### ----------------------------------- ###################
     ###########################################################################
@@ -137,7 +128,7 @@ def main():
         momentum = 0.9  # momentum
         weight_decay = 5e-4  # weight decay
 
-    elif 'pascal_bdd_day' in args.dataset:
+    elif args.dataset == 'pascal_bdd_day_night':
         from fixmatch.utils.bdd_utils import label_map
         labeled_dataset, unlabeled_dataset, (test_day_dataset, test_night_dataset) = DATASET_GETTERS[args.dataset](
             args, data_dir)
@@ -148,18 +139,16 @@ def main():
         weight_decay = 5e-4  # weight decay
 
 
-    elif 'pascal_bdd_res' in args.dataset:
-        print(f'loading dataset name: {args.dataset}')
-
+    elif 'cyclegan' in args.dataset:
         from fixmatch.utils.bdd_utils import label_map
         labeled_dataset, unlabeled_dataset, (test_day_dataset, test_night_dataset) = DATASET_GETTERS[args.dataset](
             args, data_dir)
-        n_classes = len(label_map)  # number of different types of objects
+        n_classes = len(label_map)
         args.num_classes = n_classes
-        lr = 1e-3  # learning rate
-        momentum = 0.9  # momentum
-        weight_decay = 5e-4  # weight decay
-        print(f"printing stats: {n_classes}, batch size: {args.batch_size}")
+        lr = 1e-3
+        momentum = 0.9
+        weight_decay = 5e-4
+
 
     elif args.dataset == 'pascal_bdd':
         from fixmatch.utils.bdd_utils import label_map
@@ -176,17 +165,14 @@ def main():
 
     else:
         labeled_dataset, unlabeled_dataset, (test_day_dataset, test_night_dataset) = DATASET_GETTERS[args.dataset](
-        args, data_dir)
+            args, data_dir)
         args.num_classes = 11  ## number of classes in BDD is 11
         lr = 1e-5  # learning rate
         momentum = 0.5  # momentum
         weight_decay = 5e-4  # weight decay
 
-
-
     if args.local_rank == 0:
         torch.distributed.barrier()
-
 
     fcos_args = get_args(args)
     fcos_args.size_divisible = 0
@@ -199,17 +185,10 @@ def main():
         batch_size=args.batch_size,
         num_workers=args.num_workers,
         drop_last=True,
-        pin_memory = True,
+        pin_memory=True,
         collate_fn=bdd_collate_fn(fcos_args))
 
-    unlabeled_trainloader = DataLoader(
-        unlabeled_dataset,
-        sampler=train_sampler(unlabeled_dataset),
-        batch_size=args.batch_size,
-        num_workers=args.num_workers,
-        drop_last=True,
-        pin_memory=True,
-        collate_fn=bdd_unlabeled_collate_fn(fcos_args))
+
 
     test_day_loader = DataLoader(
         test_day_dataset,
@@ -239,12 +218,10 @@ def main():
     print("Total params: {:.2f}M".format(
         sum(p.numel() for p in model.parameters()) / 1e6))
 
-    #if args.local_rank == 0:
+    # if args.local_rank == 0:
     #    torch.distributed.barrier()
 
-
     model.to(args.device)
-
 
     if args.local_rank == 0:
         torch.distributed.barrier()
@@ -258,11 +235,10 @@ def main():
     biases = list()
     not_biases = list()
 
+    # lr = args.lr
+    # momentum = 0.9
 
-    #lr = args.lr
-    #momentum = 0.9
-
-    args.train_len = len(labeled_trainloader) + len(unlabeled_trainloader)
+    args.train_len = len(labeled_trainloader)
 
     for param_name, param in model.named_parameters():
         if param.requires_grad:
@@ -315,17 +291,13 @@ def main():
     logger.info(f"  Total optimization steps = {args.total_steps}")
 
     model.zero_grad()
-    train_ssd(args, labeled_trainloader, unlabeled_trainloader,
-                   [test_day_loader, test_night_loader], [test_day_dataset, test_night_dataset],
-                   model, optimizer, ema_model, scheduler)
+    train_ssd(args, labeled_trainloader,
+              [test_day_loader, test_night_loader], [test_day_dataset, test_night_dataset],
+              model, optimizer, ema_model, scheduler)
 
 
-def train_ssd(args, labeled_trainloader, unlabeled_trainloader, test_loaders, test_datasets,
-                   model, optimizer, ema_model, scheduler):
-
-
-    import time
-    st = time.perf_counter()
+def train_ssd(args, labeled_trainloader, test_loaders, test_datasets,
+              model, optimizer, ema_model, scheduler):
     if args.amp:
         from apex import amp
     global best_acc
@@ -336,7 +308,6 @@ def train_ssd(args, labeled_trainloader, unlabeled_trainloader, test_loaders, te
     forward_time = AverageMeter()
     losses = AverageMeter()
     losses_x = AverageMeter()
-    losses_u = AverageMeter()
     # mask_probs = AverageMeter() TODO: let's see if this makes any difference
     end = time.time()
 
@@ -344,10 +315,8 @@ def train_ssd(args, labeled_trainloader, unlabeled_trainloader, test_loaders, te
         labeled_epoch = 0
         unlabeled_epoch = 0
         labeled_trainloader.sampler.set_epoch(labeled_epoch)
-        unlabeled_trainloader.sampler.set_epoch(unlabeled_epoch)
 
     labeled_iter = iter(labeled_trainloader)
-    unlabeled_iter = iter(unlabeled_trainloader)
 
     model.train()
     model.to(args.device)
@@ -360,7 +329,6 @@ def train_ssd(args, labeled_trainloader, unlabeled_trainloader, test_loaders, te
 
         if epoch in decay_lr_at:
             adjust_learning_rate(optimizer, decay_lr_to)
-
 
         if not args.no_progress:
             p_bar = tqdm(range(args.eval_step),
@@ -375,76 +343,41 @@ def train_ssd(args, labeled_trainloader, unlabeled_trainloader, test_loaders, te
                 labeled_iter = iter(labeled_trainloader)
                 inputs_x, targets_x, _ = labeled_iter.next()
 
-            try:
-                ### for the unlabeled iter, we get the weak augmented and strong augmented
-                inputs_u_w, inputs_u_s, _ = unlabeled_iter.next()
-                # (inputs_u_w, inputs_u_s), _, _ = unlabeled_iter.next()
 
-            except:
-                if args.world_size > 1:
-                    unlabeled_epoch += 1
-                    unlabeled_trainloader.sampler.set_epoch(unlabeled_epoch)
-                unlabeled_iter = iter(unlabeled_trainloader)
-                # (inputs_u_w, inputs_u_s), _, _ = unlabeled_iter.next()
-                inputs_u_w, inputs_u_s, _ = unlabeled_iter.next()
+
 
             data_time.update(time.time() - end)
 
             optimizer.zero_grad()
 
-
             (loss1, _) = model(inputs_x.tensors, targets=targets_x, labeled=True)
 
-            ### sometimes the loss1 is inf (probably when the boxes are of size 0
+            Lx = loss1
 
             forward_labeled_time.update(time.time() - end)
 
-            ### (2) compute the loss between weakly unlabeled and strong unlabeled
-            (loss2, _) = model(inputs_u_w.tensors,
-                                    targets=inputs_u_s.tensors, labeled=False,
-                                    threshold=args.threshold, image_sizes=inputs_u_w.sizes)
+            loss = Lx
 
-            if torch.isinf(loss1):
-                Lx = torch.tensor(0).to(args.device)
+            forward_time.update(time.time() - end)
 
-                if loss2 is None:
-                    loss2 = torch.tensor(0).to(args.device)
-                loss2 = torch.nan_to_num(loss2)
-                Lu = loss2
-
-                loss = Lx + args.lambda_u * Lu
-
-                forward_time.update(time.time() - end)
-
-            else:
-                Lx = loss1
-
-                if loss2 is None:
-                    loss2 = torch.tensor(0).to(args.device)
-                loss2 = torch.nan_to_num(loss2)
-                Lu = loss2
-
-                loss = Lx + args.lambda_u * Lu
-
-                forward_time.update(time.time() - end)
-
+            if not torch.isinf(loss1):
                 if args.amp:
                     with amp.scale_loss(loss, optimizer) as scaled_loss:
                         scaled_loss.backward()
                 else:
                     loss.backward()
-
+            else:
+                Lx = torch.tensor(0)
 
             loss_dict = {'total_loss': loss,
-                         'Lx': Lx,
-                         'Lu': Lu}
+                         'Lx'        : Lx
+                         }
 
             reduced_losses = reduce_loss_dict(loss_dict)
-            
 
             losses.update(reduced_losses['total_loss'].item())
             losses_x.update(reduced_losses['Lx'].item())
-            losses_u.update(reduced_losses['Lu'].item())
+
             """
 
             if args.local_rank in [-1, 0]:
@@ -464,7 +397,7 @@ def train_ssd(args, labeled_trainloader, unlabeled_trainloader, test_loaders, te
             # mask_probs.update(mask.mean().item())
             if not args.no_progress:
                 p_bar.set_description(
-                    "Train Epoch: {epoch}/{epochs:4}. Iter: {batch:4}/{iter:4}. LR: {lr:.4f}. Data: {data:.3f}s. Forward Labeled: {frl: .3f}s Forward: {fr:.3f}s. Batch: {bt:.3f}s. Loss: {loss:.4f}. Loss_x: {loss_x:.4f}. Loss_u: {loss_u:.4f}. ".format(
+                    "Train Epoch: {epoch}/{epochs:4}. Iter: {batch:4}/{iter:4}. LR: {lr:.4f}. Data: {data:.3f}s. Forward Labeled: {frl: .3f}s Forward: {fr:.3f}s. Batch: {bt:.3f}s. Loss: {loss:.4f}. Loss_x: {loss_x:.4f}. ".format(
                         epoch=epoch + 1,
                         epochs=args.epochs,
                         batch=batch_idx + 1,
@@ -475,8 +408,7 @@ def train_ssd(args, labeled_trainloader, unlabeled_trainloader, test_loaders, te
                         fr=forward_time.avg,
                         bt=batch_time.avg,
                         loss=losses.avg,
-                        loss_x=losses_x.avg,
-                        loss_u=losses_u.avg))
+                        loss_x=losses_x.avg))
                 p_bar.update()
 
         if not args.no_progress:
@@ -501,16 +433,18 @@ def train_ssd(args, labeled_trainloader, unlabeled_trainloader, test_loaders, te
 
             args.writer.add_scalar('train/1.train_loss', losses.avg, epoch)
             args.writer.add_scalar('train/2.train_loss_x', losses_x.avg, epoch)
-            args.writer.add_scalar('train/3.train_loss_u', losses_u.avg, epoch)
-            args.writer.add_scalar('train/4.train_time', int(time.perf_counter() - st), epoch)
 
-
-            if 'pascal_bdd_day' in args.dataset:
+            if args.dataset == 'pascal_bdd_day_night' or args.dataset == 'pascal_bdd_day_night_cyclegan':
                 args.writer.add_scalar('test/1.day_mAP', day_results, epoch)
                 args.writer.add_scalar('test/2.night_mAP', night_results, epoch)
-            elif 'pascal_bdd_res' in args.dataset:
+                print(f'DAY (mAP): {day_results}, NIGHT (mAP): {night_results}')
+
+            if 'res_city' in args.dataset:
                 args.writer.add_scalar('test/1.res_mAP', day_results, epoch)
                 args.writer.add_scalar('test/2.city_mAP', night_results, epoch)
+                print(f'RES (mAP): {day_results}, CITY (mAP): {night_results}')
+
+
 
             elif not (args.dataset == 'pascal_voc' or args.dataset == 'pascal_bdd'):
                 args.writer.add_scalar('test/1.day_mAP', day_results['bbox']['AP'], epoch)
@@ -523,6 +457,8 @@ def train_ssd(args, labeled_trainloader, unlabeled_trainloader, test_loaders, te
 
             else:
                 args.writer.add_scalar('test/1.day_mAP', day_results, epoch)
+
+
 
             # is_best = test_acc > best_acc
             # best_acc = max(test_acc, best_acc)
@@ -659,11 +595,10 @@ def valid_p2(dataset, preds):
 
 @torch.no_grad()
 def valid(args, loader, dataset, m, device):
-    if 'pascal_bdd_day' in args.dataset \
-            or 'pascal_bdd_res' in args.dataset or \
-            args.dataset in  ['pascal_voc', 'pascal_bdd']:
+    if args.dataset in ['pascal_voc', 'pascal_bdd', 'pascal_bdd_day_night']\
+            or 'cyclegan' in args.dataset:
         pp = PrettyPrinter()
-        from fixmatch.evaluate_pascal import evaluate_fixmatch as evaluate_voc
+        from fixmatch.others.evaluate_pascal import evaluate_fixmatch as evaluate_voc
         APs, mAP = evaluate_voc(args, loader, m)
         pp.pprint(APs)
 
@@ -698,7 +633,6 @@ def accumulate_predictions(predictions):
     return predictions
 
 
-
 def adjust_learning_rate(optimizer, scale):
     """
     Scale learning rate by a specified factor.
@@ -709,6 +643,7 @@ def adjust_learning_rate(optimizer, scale):
     for param_group in optimizer.param_groups:
         param_group['lr'] = param_group['lr'] * scale
     print("DECAYING learning rate.\n The new LR is %f\n" % (optimizer.param_groups[1]['lr'],))
+
 
 ##########################################################################################
 ##########################################################################################
@@ -726,10 +661,8 @@ def get_fixmatch_arguments():
     parser.add_argument('--num-workers', type=int, default=1,
                         help='number of workers')
     parser.add_argument('--dataset', default='bdd_fcos', type=str,
-                        choices=['cifar10', 'cifar100', 'bdd', 'bdd_fcos', 'pascal_voc',
-                                 'pascal_bdd', 'pascal_bdd_day_night', 'pascal_bdd_day_night_cyclegan',
-                                 'pascal_bdd_day_all', 'pascal_bdd_day_night_all',
-                                 'pascal_bdd_res_city', 'pascal_bdd_res_city_cyclegan'],
+                        choices=['cifar10', 'cifar100', 'bdd', 'bdd_fcos', 'pascal_voc', 'pascal_bdd',
+                                 'pascal_bdd_day_night', 'pascal_bdd_day_night_cyclegan', 'pascal_bdd_res_city_cyclegan'],
                         help='dataset name')
     parser.add_argument('--num-labeled', type=int, default=100,
                         help='number of labeled data')

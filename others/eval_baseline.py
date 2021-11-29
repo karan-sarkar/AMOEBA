@@ -1,21 +1,11 @@
-import torch
-import torchvision
-import torch.nn as nn
 import torch.optim as optim
-import torch.nn.functional as F
-import torchvision.utils as vutils
 import matplotlib.pyplot as plt
-import numpy as np
-import math
-import json
-import tqdm
 import time
 import argparse
 
 
-from bdd import *
-from util import *
-from ssd import *
+from others.bdd import *
+from others.ssd import *
 
 
 EPOCHS = 100

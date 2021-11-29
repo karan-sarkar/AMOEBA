@@ -3,7 +3,7 @@ This file implements the model pipelines needed to create the benchmark for
 CycleGAN + SSD
 
 The process we need to do is as follows:
-1. Train the CycleGAN (assume this is done through train.py)
+1. Train the CycleGAN (assume this is done through train_cyclegan.py)
 2. Use the trained CycleGAN to transfer all DAY images to NIGHT
 3. Train SSD on transferred NIGHt images with labels
 4. Evaluate the real NIGHT images against GT labels
