@@ -11,3 +11,23 @@ The relevant files and directory are as follows:
 5. Drift Recovery with FIXMATCH: `fixmatch/drift_recovery_fixmatch.py`
 6. CYCLEGAN training: `cyclegan/train_cyclegan.py`
 7. Drift Recovery with CYCLEGAN+: `cyclegan/dirft_recovery_cyclegan.bash`
+
+### Example Images of SSD Retrained with AMOEBA
+
+![alt text](images/amoebaA.jpg)
+![alt text](images/amoebaB.jpg)
+![alt text](images/amoebaC.jpg)
+![alt text](images/amoebaD.jpg)
+![alt text](images/amoebaE.jpg)
+![alt text](images/amoebaF.jpg)
+![alt text](images/amoebanight.jpg)
+
+### Example Images of SSD experiencing drift
+
+![alt text](images/baselineA.jpg)
+![alt text](images/baselineB.jpg)
+![alt text](images/baselineC.jpg)
+![alt text](images/baselineD.jpg)
+![alt text](images/baselineE.jpg)
+![alt text](images/baselineF.jpg)
+
