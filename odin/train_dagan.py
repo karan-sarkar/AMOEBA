@@ -23,7 +23,7 @@ from torch.utils.data import Dataset, DataLoader
 from torch.optim.lr_scheduler import StepLR
 from odin.trainer import VAEGANTrainer
 from odin import utils
-from utils.inference_dataset import InferenceDataset
+from amoeba_utils.inference_dataset import InferenceDataset
 
 
 
@@ -223,7 +223,7 @@ if __name__ == "__main__":
     ### first let's train the images on day
     from odin.loaders.bdd_loader import load_images
     dataset_name = 'bdd'
-    dataset_split = 'daytime'
+    dataset_split = 'rainy'
     day_dataset = load_images(dataset_split)
     print(f'dataset shape: {day_dataset.shape}')
 

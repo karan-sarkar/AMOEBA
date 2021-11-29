@@ -2,7 +2,7 @@ import pdb
 import importlib
 from torch import nn
 from .abstracts import ReidModel
-from utils import layers
+from amoeba_utils import layers
 
 class ResnetBase(ReidModel):
     """Basic ReID Resnet model.

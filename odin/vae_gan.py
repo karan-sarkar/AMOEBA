@@ -1,7 +1,7 @@
 import os, shutil, glob, re, pdb, json
 import kaptan
 import click
-import utils
+import amoeba_utils
 import torch, torchsummary, torchvision
 
 
@@ -15,8 +15,8 @@ def main(config, mode, weights):
     config = cfg.import_config(config)
 
     # Generate logger
-    MODEL_SAVE_NAME, MODEL_SAVE_FOLDER, LOGGER_SAVE_NAME, CHECKPOINT_DIRECTORY = utils.generate_save_names(config)
-    logger = utils.generate_logger(MODEL_SAVE_FOLDER, LOGGER_SAVE_NAME)
+    MODEL_SAVE_NAME, MODEL_SAVE_FOLDER, LOGGER_SAVE_NAME, CHECKPOINT_DIRECTORY = amoeba_utils.generate_save_names(config)
+    logger = amoeba_utils.generate_logger(MODEL_SAVE_FOLDER, LOGGER_SAVE_NAME)
 
     logger.info("*"*40);logger.info("");logger.info("")
     logger.info("Using the following configuration:")
@@ -31,7 +31,7 @@ def main(config, mode, weights):
     #from loss import LossBuilder
     
 
-    NORMALIZATION_MEAN, NORMALIZATION_STD, RANDOM_ERASE_VALUE = utils.fix_generator_arguments(config)
+    NORMALIZATION_MEAN, NORMALIZATION_STD, RANDOM_ERASE_VALUE = amoeba_utils.fix_generator_arguments(config)
     TRAINDATA_KWARGS = {"rea_value": config.get("TRANSFORMATION.RANDOM_ERASE_VALUE")}
 
 

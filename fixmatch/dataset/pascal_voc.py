@@ -66,22 +66,22 @@ def get_pascal_bdd_day_night(args, data_dir):
     night_unlabeled_indices = np.arange(train_cut, night_dataset_len)
 
 
-    day_labeled_set = torch.utils.data.Subset(day_labeled_dataset, labeled_indices)
-    night_labeled_set = torch.utils.data.Subset(night_labeled_dataset, labeled_indices)
-    labeled_set = torch.utils.data.ConcatDataset([day_labeled_set, night_labeled_set])
+    day_labeled_set = torch.amoeba_utils.data.Subset(day_labeled_dataset, labeled_indices)
+    night_labeled_set = torch.amoeba_utils.data.Subset(night_labeled_dataset, labeled_indices)
+    labeled_set = torch.amoeba_utils.data.ConcatDataset([day_labeled_set, night_labeled_set])
 
 
-    day_unlabeled_set = torch.utils.data.Subset(day_unlabeled_dataset, day_unlabeled_indices)
-    night_unlabeled_set = torch.utils.data.Subset(night_unlabeled_dataset, night_unlabeled_indices)
+    day_unlabeled_set = torch.amoeba_utils.data.Subset(day_unlabeled_dataset, day_unlabeled_indices)
+    night_unlabeled_set = torch.amoeba_utils.data.Subset(night_unlabeled_dataset, night_unlabeled_indices)
 
-    unlabeled_set = torch.utils.data.ConcatDataset([day_unlabeled_set, night_unlabeled_set])
+    unlabeled_set = torch.amoeba_utils.data.ConcatDataset([day_unlabeled_set, night_unlabeled_set])
 
 
     #### let's shorten the test_dataset, we will use 1000 examples
     test_len = 500
     test_indices = np.arange(test_len).astype(np.int32)
-    day_test_dataset = torch.utils.data.Subset(day_test_dataset, test_indices)
-    night_test_dataset = torch.utils.data.Subset(night_test_dataset, test_indices)
+    day_test_dataset = torch.amoeba_utils.data.Subset(day_test_dataset, test_indices)
+    night_test_dataset = torch.amoeba_utils.data.Subset(night_test_dataset, test_indices)
 
     return labeled_set, unlabeled_set, (day_test_dataset, night_test_dataset)
 

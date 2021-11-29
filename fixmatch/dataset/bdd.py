@@ -126,7 +126,7 @@ def get_bdd_fcos(args, data_dir):
     test_day_set = torch.utils.data.Subset(test_day_set, day_test_indices)
     test_night_set = torch.utils.data.Subset(test_night_set, night_test_indices)
 
-    #test_dataset = torch.utils.data.ConcatDataset([test_day_set, test_night_set])
+    #test_dataset = torch.amoeba_utils.data.ConcatDataset([test_day_set, test_night_set])
 
     labeled_set = torch.utils.data.ConcatDataset([labeled_day_set, labeled_night_set])
     unlabeled_set = torch.utils.data.ConcatDataset([unlabeled_day_set, unlabeled_night_set])

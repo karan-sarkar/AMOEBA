@@ -1,5 +1,5 @@
 """
-In this file, we implement the utils functions to generate the JSON files like pascal voc.
+In this file, we implement the amoeba_utils functions to generate the JSON files like pascal voc.
 Hence, we can just use the PASCALVOC Dataset object to load the data and train stuff
 
 """
@@ -44,7 +44,8 @@ bdd_attributes = {'daytime'  : 'timeofday',
                   'partly cloudy': 'weather',
                   'foggy'    : 'weather',
                   'city street': 'scene',
-                  'residential': 'scene'}
+                  'residential': 'scene',
+                  'highway': 'scene'}
 
 
 def calculate_mAP_bdd(det_boxes, det_labels, det_scores, true_boxes, true_labels, true_difficulties):
@@ -256,6 +257,7 @@ def determine_box_condition(box):
 
 def generate_images_and_objects_category(output_folder:str, split:str, group:str):
     split = split.lower()
+    print(f"Working on {split}_{group}...")
     assert(split == 'train' or split == 'val')
     labels_dir = f'/srv/data/jbang36/bdd/labels/bdd_{split}.json'
     json_file = _load_json(labels_dir)

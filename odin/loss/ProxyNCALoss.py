@@ -1,7 +1,7 @@
 import torch
 from torch import nn
 from . import Loss
-from utils.math import pairwise_distance
+from amoeba_utils.math import pairwise_distance
 import pdb
 class ProxyNCA:
     """Softmax with label smoothing

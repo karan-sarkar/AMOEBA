@@ -103,7 +103,7 @@ def reduce_loss_dict(loss_dict):
 
 
 # Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
-# Code is copy-pasted exactly as in torch.utils.data.distributed.
+# Code is copy-pasted exactly as in torch.amoeba_utils.data.distributed.
 # FIXME remove this once c10d fixes the bug it has
 
 

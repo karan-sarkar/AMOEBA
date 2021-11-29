@@ -24,7 +24,7 @@ def evaluate_fixmatch(args, test_loader, model):
     det_scores = list()
     true_boxes = list()
     true_labels = list()
-    true_difficulties = list()  # it is necessary to know which objects are 'difficult', see 'calculate_mAP' in utils.py
+    true_difficulties = list()  # it is necessary to know which objects are 'difficult', see 'calculate_mAP' in amoeba_utils.py
 
     with torch.no_grad():
         # Batches
@@ -89,7 +89,7 @@ def evaluate(test_loader, model):
     det_scores = list()
     true_boxes = list()
     true_labels = list()
-    true_difficulties = list()  # it is necessary to know which objects are 'difficult', see 'calculate_mAP' in utils.py
+    true_difficulties = list()  # it is necessary to know which objects are 'difficult', see 'calculate_mAP' in amoeba_utils.py
 
     with torch.no_grad():
         # Batches

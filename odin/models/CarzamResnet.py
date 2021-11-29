@@ -2,7 +2,7 @@ import pdb
 import importlib
 from torch import nn
 from .abstracts import ReidModel
-from utils import layers
+from amoeba_utils import layers
 import torch
 
 class CarzamResnet(ReidModel):

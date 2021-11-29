@@ -13,7 +13,7 @@ from torch import Tensor, nn
 from torch.utils.data import Dataset
 from util import *
 
-from collections import Counter()
+from collections import Counter
 
 filter_obj = 'truck'
 filter_limit = 1
@@ -114,7 +114,6 @@ class BDD(torch.utils.data.Dataset):
         labels = torch.Tensor(labels).long()
 
         img, boxes, labels = transform(img, boxes, labels, split=self.split)
-        if self.original:
         return img, boxes, labels
     
     def collate_fn(self, batch):
